@@ -9,6 +9,7 @@ import com.example.filemanager.data.FileRepository
 import com.example.filemanager.data.FileType
 import com.example.filemanager.data.SettingsRepository
 import com.example.filemanager.data.StorageInfo
+import com.example.filemanager.data.dataStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,7 +25,7 @@ import java.io.File
 
 class HomeViewModel(
     private val repository: FileRepository,
-    settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val _storageInfo = MutableStateFlow<StorageInfo?>(null)
@@ -56,10 +57,9 @@ class HomeViewModel(
     private val _sortOrder = MutableStateFlow(SortOrder.ASCENDING)
     val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
 
-    val viewType: StateFlow<ViewType> = settingsRepository.viewMode
-        .map { 
-            when (it) {
-                0 -> ViewType.LIST
+    val viewType: StateFlow<ViewType> = settingsRepository.context.dataStore.data
+        .map { preferences ->
+            when (preferences[SettingsRepository.VIEW_MODE]) {
                 1 -> ViewType.GRID
                 2 -> ViewType.COMPACT
                 3 -> ViewType.LARGE_GRID
@@ -434,32 +434,24 @@ class HomeViewModel(
 
     fun undoDelete(originalPath: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
-            // Find the most recently deleted file with this original path
-            val trashedFiles = repository.getTrashedFiles()
-            val fileToRestore = trashedFiles
-                .filter { it.originalPath == originalPath }
-                .maxByOrNull { it.dateDeleted }
-
-            if (fileToRestore != null) {
-                if (repository.restoreFile(fileToRestore)) {
-                    // Refresh Recents to show the file again
-                    loadRecentFiles()
-                    loadTrashedFiles() // Update trash logic
+            // Simplified: Find in trash and restore. 
+            // This assumes the file's originalPath is unique enough.
+            val trashedFile = repository.getTrashedFiles().find { it.originalPath == originalPath }
+            if (trashedFile != null) {
+                if (repository.restoreFile(trashedFile)) {
                     onSuccess()
+                    showMessage("File restored.")
                 } else {
-                    showMessage("Failed to undo delete")
+                    showMessage("Undo failed.")
                 }
             } else {
-                showMessage("Could not find file to restore")
+                showMessage("Could not find file to restore.")
             }
         }
     }
 }
 
-class HomeViewModelFactory(
-    private val repository: FileRepository,
-    private val settingsRepository: SettingsRepository
-) : ViewModelProvider.Factory {
+class HomeViewModelFactory(private val repository: FileRepository, private val settingsRepository: SettingsRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
@@ -468,3 +460,7 @@ class HomeViewModelFactory(
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
+
+enum class SortType { NAME, SIZE, DATE }
+enum class SortOrder { ASCENDING, DESCENDING }
+enum class ViewType { LIST, GRID, COMPACT, LARGE_GRID }
