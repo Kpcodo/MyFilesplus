@@ -30,6 +30,7 @@ class SettingsRepository(private val context: Context) {
         val SWIPE_NAVIGATION_ENABLED = booleanPreferencesKey("swipe_navigation_enabled")
         val SWIPE_DELETE_ENABLED = booleanPreferencesKey("swipe_delete_enabled")
         val SWIPE_DELETE_DIRECTION = intPreferencesKey("swipe_delete_direction") // 0 = Left, 1 = Right
+        val TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
     }
 
     val swipeDeleteEnabled: Flow<Boolean> = context.dataStore.data
@@ -37,9 +38,21 @@ class SettingsRepository(private val context: Context) {
 
     val swipeDeleteDirection: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[SWIPE_DELETE_DIRECTION] ?: 0 } // Default 0 (Left)
+    
+    val trashRetentionDays: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[TRASH_RETENTION_DAYS] ?: 30 } // Default 30 days
 
     val viewMode: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[VIEW_MODE] ?: 0 }
+
+
+    suspend fun setTrashRetentionDays(days: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[TRASH_RETENTION_DAYS] = days
+        }
+    }
+
+
 
 
     val themeMode: Flow<Int> = context.dataStore.data

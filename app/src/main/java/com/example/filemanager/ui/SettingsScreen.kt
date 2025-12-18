@@ -293,6 +293,72 @@ fun SettingsScreen(
                     }
                 }
             }
+            
+            HorizontalDivider()
+
+            // Trash Bin Policy
+            SettingsSection(title = "Trash Bin Policy") {
+                Text(
+                    "Remove deleted files after:", 
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val days = state.trashRetentionDays
+                    val presetValues = listOf(30, 180, 365)
+                    val isCustom = days !in presetValues
+
+                    FilterChip(
+                        selected = days == 30,
+                        onClick = { viewModel.setTrashRetentionDays(30) },
+                        label = { Text("1 Month") },
+                        leadingIcon = if (days == 30) { { Icon(Icons.Default.Check, null) } } else null
+                    )
+                    FilterChip(
+                        selected = days == 180,
+                        onClick = { viewModel.setTrashRetentionDays(180) },
+                        label = { Text("6 Months") },
+                        leadingIcon = if (days == 180) { { Icon(Icons.Default.Check, null) } } else null
+                    )
+                    FilterChip(
+                        selected = days == 365,
+                        onClick = { viewModel.setTrashRetentionDays(365) },
+                        label = { Text("12 Months") },
+                        leadingIcon = if (days == 365) { { Icon(Icons.Default.Check, null) } } else null
+                    )
+                    FilterChip(
+                        selected = isCustom,
+                        onClick = { if (!isCustom) viewModel.setTrashRetentionDays(90) }, // Default to 3 months if clicking custom
+                        label = { Text("Custom") },
+                        leadingIcon = if (isCustom) { { Icon(Icons.Default.Check, null) } } else null
+                    )
+                }
+                
+                if (state.trashRetentionDays !in listOf(30, 180, 365)) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Custom Duration: ${state.trashRetentionDays} days", 
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Slider(
+                        value = state.trashRetentionDays.toFloat(),
+                        onValueChange = { viewModel.setTrashRetentionDays(it.toInt()) },
+                        valueRange = 1f..730f, // Up to 2 years
+                        steps = 0 // Continuous or specific steps? continuous is fine
+                    )
+                } else {
+                     Spacer(modifier = Modifier.height(8.dp))
+                     Text(
+                        "Files will be permanently deleted after ${state.trashRetentionDays} days.", 
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }

@@ -90,6 +90,8 @@ class FileRepository(private val context: Context) {
     suspend fun deleteFilePermanently(trashedFile: TrashedFile): Boolean = trashManager.deletePermanently(trashedFile)
 
     suspend fun emptyTrash(): Boolean = trashManager.emptyTrash()
+
+    suspend fun cleanupExpiredTrash(days: Int): Int = trashManager.cleanupExpiredFiles(days)
     
     suspend fun getTrashSize(): Long = trashManager.getTrashedFiles().sumOf { it.size }
 

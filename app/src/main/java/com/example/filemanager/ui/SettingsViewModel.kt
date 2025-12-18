@@ -20,7 +20,8 @@ data class SettingsState(
     val isBlurEnabled: Boolean = true,
     val isSwipeNavigationEnabled: Boolean = false,
     val swipeDeleteEnabled: Boolean = false,
-    val swipeDeleteDirection: Int = 0 // 0=Left, 1=Right
+    val swipeDeleteDirection: Int = 0, // 0=Left, 1=Right
+    val trashRetentionDays: Int = 30
 )
 
 class SettingsViewModel(private val repository: SettingsRepository) : ViewModel() {
@@ -43,6 +44,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         settings.copy(swipeDeleteEnabled = del)
     }.combine(repository.swipeDeleteDirection) { settings, dir ->
         settings.copy(swipeDeleteDirection = dir)
+    }.combine(repository.trashRetentionDays) { settings, days ->
+        settings.copy(trashRetentionDays = days)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -112,6 +115,12 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun setSwipeDeleteDirection(direction: Int) {
         viewModelScope.launch {
             repository.setSwipeDeleteDirection(direction)
+        }
+    }
+    
+    fun setTrashRetentionDays(days: Int) {
+        viewModelScope.launch {
+            repository.setTrashRetentionDays(days)
         }
     }
 }

@@ -87,7 +87,11 @@ class TrashManager(private val context: Context) {
         val fileInTrash = File(trashedFile.trashPath)
         val originalFile = File(trashedFile.originalPath)
 
-        if (!fileInTrash.exists()) return@withContext false
+        if (!fileInTrash.exists()) {
+            // File is missing from trash (phantom), remove metadata to clean up UI
+            removeMetadata(trashedFile)
+            return@withContext false
+        }
 
         // Ensure parent directory exists
         val parentDir = originalFile.parentFile
@@ -189,6 +193,22 @@ class TrashManager(private val context: Context) {
             }
         }
         return@withContext allSuccess
+    }
+
+    suspend fun cleanupExpiredFiles(retentionDays: Int): Int = withContext(Dispatchers.IO) {
+        val retentionMillis = retentionDays * 24 * 60 * 60 * 1000L
+        val cutoffTime = System.currentTimeMillis() - retentionMillis
+        val trashedFiles = getTrashedFiles()
+        var deletedCount = 0
+        
+        for (file in trashedFiles) {
+            if (file.dateDeleted < cutoffTime) {
+                if (deletePermanently(file)) {
+                    deletedCount++
+                }
+            }
+        }
+        return@withContext deletedCount
     }
 
     private fun deleteViaContentResolver(file: File): Boolean {

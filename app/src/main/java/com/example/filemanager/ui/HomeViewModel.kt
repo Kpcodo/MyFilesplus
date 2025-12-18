@@ -24,8 +24,20 @@ import java.io.File
 
 class HomeViewModel(
     private val repository: FileRepository,
-    settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.trashRetentionDays.collect { days ->
+                val deletedCount = repository.cleanupExpiredTrash(days)
+                if (deletedCount > 0) {
+                    loadTrashedFiles()
+                    _trashSize.value = repository.getTrashSize()
+                }
+            }
+        }
+    }
 
     private val _storageInfo = MutableStateFlow<StorageInfo?>(null)
     val storageInfo: StateFlow<StorageInfo?> = _storageInfo
@@ -360,20 +372,8 @@ class HomeViewModel(
         }
     }
 
-    fun loadStorageInfo() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                // Artificial delay removed for speed
-                // delay(300)
-                _storageInfo.value = repository.getStorageInfo()
-            } catch (e: Exception) {
-                showMessage("Error loading storage info: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
+    // loadStorageInfo replaced/moved to combine strongly with dashboard data
+
 
     fun addToClipboard(file: FileModel, operation: ClipboardOperation) {
         _clipboardFile.value = file
@@ -429,21 +429,70 @@ class HomeViewModel(
 
     private val _largeFilesCount = MutableStateFlow(0)
 
+    private suspend fun fetchStorageInfo() {
+        _storageInfo.value = repository.getStorageInfo()
+    }
+
+    fun loadStorageInfo() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                fetchStorageInfo()
+            } catch (e: Exception) {
+                showMessage("Error loading storage info: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    private suspend fun fetchDashboardData() = kotlinx.coroutines.coroutineScope {
+        val trashSizeDeferred = async { repository.getTrashSize() }
+        val emptyFoldersDeferred = async { repository.getEmptyFolders() }
+        val largeFilesDeferred = async { repository.getLargeFiles().size }
+        val forecastTextDeferred = async { repository.calculateStorageForecast() }
+        val cacheSizeDeferred = async { repository.getCacheSize() }
+
+        _trashSize.value = trashSizeDeferred.await()
+        val emptyFolders = emptyFoldersDeferred.await()
+        _ghostFiles.value = emptyFolders
+        _emptyFoldersCount.value = emptyFolders.size
+        _largeFilesCount.value = largeFilesDeferred.await()
+        _forecastText.value = forecastTextDeferred.await()
+        _cacheSize.value = cacheSizeDeferred.await()
+    }
+
     fun loadDashboardData() {
         viewModelScope.launch {
-            val trashSizeDeferred = async { repository.getTrashSize() }
-            val emptyFoldersDeferred = async { repository.getEmptyFolders() }
-            val largeFilesDeferred = async { repository.getLargeFiles().size }
-            val forecastTextDeferred = async { repository.calculateStorageForecast() }
-            val cacheSizeDeferred = async { repository.getCacheSize() }
+            try {
+                fetchDashboardData()
+            } catch (e: Exception) {
+                // Log or ignore, silent update
+            }
+        }
+    }
 
-            _trashSize.value = trashSizeDeferred.await()
-            val emptyFolders = emptyFoldersDeferred.await()
-            _ghostFiles.value = emptyFolders
-            _emptyFoldersCount.value = emptyFolders.size
-            _largeFilesCount.value = largeFilesDeferred.await()
-            _forecastText.value = forecastTextDeferred.await()
-            _cacheSize.value = cacheSizeDeferred.await()
+    fun refreshHomeData() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val minTime = launch { kotlinx.coroutines.delay(800) } // Ensure visible refresh cycle
+            try {
+                val job1 = launch { 
+                    try { fetchStorageInfo() } catch (e: Exception) { showMessage("Error: ${e.message}") } 
+                }
+                val job2 = launch { 
+                    try { fetchDashboardData() } catch (e: Exception) { /* Silent */ } 
+                }
+                
+                // Wait for data
+                job1.join()
+                job2.join()
+                
+            } finally {
+                // Stay loading for at least minTime
+                minTime.join()
+                _isLoading.value = false
+            }
         }
     }
 

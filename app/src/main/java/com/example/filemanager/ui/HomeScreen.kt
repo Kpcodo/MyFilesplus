@@ -90,8 +90,7 @@ fun HomeScreen(
     PullToRefreshBox(
         isRefreshing = isLoading,
         onRefresh = { 
-            viewModel.loadStorageInfo()
-            viewModel.loadDashboardData()
+            viewModel.refreshHomeData()
         },
         modifier = Modifier.fillMaxSize()
     ) {

@@ -114,49 +114,54 @@ fun ForecastScreen(
                         StorageBreakdownCard(currentStorageInfo)
                     }
 
-                    // 3. Recommendations Header
+                    // 3. Cleanup Recommendations Hub
                     item {
                         Text(
-                            text = "Recommendations",
+                            text = "Cleanup Recommendations",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
 
-                    // 4. Ghost Files Quick Clean
+                    // A. Unused Files (Empty Folders)
                     item {
-                        Card(
-                            onClick = { /* TODO: Navigate to Ghost Files or trigger clean */ },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                           Row(
-                               modifier = Modifier.padding(16.dp),
-                               verticalAlignment = Alignment.CenterVertically
-                           ) {
-                               Icon(Icons.Default.CleaningServices, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                               Spacer(modifier = Modifier.width(16.dp))
-                               Column(modifier = Modifier.weight(1f)) {
-                                   Text("Clean Empty Folders", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                   Text("Remove clutter from uninstalled apps", style = MaterialTheme.typography.bodySmall)
-                               }
-                               TextButton(onClick = { viewModel.deleteAllGhostFiles() }) {
-                                   Text("Clean")
-                               }
-                           }
-                        }
+                         val ghostFiles by viewModel.ghostFiles.collectAsState()
+                         if (ghostFiles.isNotEmpty()) {
+                             Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                modifier = Modifier.fillMaxWidth()
+                             ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.CleaningServices, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Unused Files", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                        Text("${ghostFiles.size} empty folders found", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    TextButton(onClick = { viewModel.deleteAllGhostFiles() }) {
+                                        Text("Clean")
+                                    }
+                                }
+                             }
+                         }
                     }
 
-                    // 5. Large Files List
+                    // B. Large Files Header/Card
                     item {
-                        Text(
-                            text = "Review Large Files",
+                        // Just a sub-header for the list
+                         Text(
+                            text = "Large Files",
                             style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                         )
                     }
 
+                    // C. Large Files List
                     if (largeFiles.isEmpty() && !isLoading) {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
