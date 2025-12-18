@@ -255,28 +255,7 @@ class HomeViewModel(
     }
 
     private val _trashedFiles = MutableStateFlow<List<com.example.filemanager.data.TrashedFile>>(emptyList())
-    // val trashedFiles: StateFlow<List<com.example.filemanager.data.TrashedFile>> = _trashedFiles.asStateFlow() // Replaced by filtered flow
-
-    private val _trashSearchQuery = MutableStateFlow("")
-    val trashSearchQuery: StateFlow<String> = _trashSearchQuery.asStateFlow()
-
-    val trashedFiles: StateFlow<List<com.example.filemanager.data.TrashedFile>> = _trashSearchQuery
-        .combine(_trashedFiles) { query, files ->
-            if (query.isBlank()) {
-                files
-            } else {
-                files.filter { it.name.contains(query, ignoreCase = true) }
-            }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-
-    fun updateTrashSearchQuery(query: String) {
-        _trashSearchQuery.value = query
-    }
+    val trashedFiles: StateFlow<List<com.example.filemanager.data.TrashedFile>> = _trashedFiles.asStateFlow()
 
     fun loadTrashedFiles() {
         viewModelScope.launch {
