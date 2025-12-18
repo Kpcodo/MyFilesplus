@@ -38,6 +38,12 @@ class SettingsRepository(private val context: Context) {
     val swipeDeleteDirection: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[SWIPE_DELETE_DIRECTION] ?: 0 } // Default 0 (Left)
 
+    val viewMode: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[VIEW_MODE] ?: 0 }
+
+    val iconSize: Flow<Float> = context.dataStore.data
+        .map { preferences -> preferences[ICON_SIZE] ?: 1.0f }
+
 
     suspend fun setThemeMode(mode: Int) {
         context.dataStore.edit { preferences ->

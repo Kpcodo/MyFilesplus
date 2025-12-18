@@ -9,7 +9,6 @@ import com.example.filemanager.data.FileRepository
 import com.example.filemanager.data.FileType
 import com.example.filemanager.data.SettingsRepository
 import com.example.filemanager.data.StorageInfo
-import com.example.filemanager.data.dataStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -57,9 +56,9 @@ class HomeViewModel(
     private val _sortOrder = MutableStateFlow(SortOrder.ASCENDING)
     val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
 
-    val viewType: StateFlow<ViewType> = settingsRepository.context.dataStore.data
-        .map { preferences ->
-            when (preferences[SettingsRepository.VIEW_MODE]) {
+    val viewType: StateFlow<ViewType> = settingsRepository.viewMode
+        .map { mode ->
+            when (mode) {
                 1 -> ViewType.GRID
                 2 -> ViewType.COMPACT
                 3 -> ViewType.LARGE_GRID
@@ -427,7 +426,7 @@ class HomeViewModel(
                 _largeFiles.value = _largeFiles.value.filter { it.path != file.path }
                 _largeFilesCount.value = _largeFiles.value.size
                 _trashSize.value = repository.getTrashSize()
-                loadForecastDetails() // Refresh stats
+                loadForecastDetails() 
             }
         }
     }

@@ -22,84 +22,42 @@ import kotlinx.coroutines.withContext
 class FileRepository(private val context: Context) {
 
     suspend fun getFilesFromPath(path: String): List<FileModel> = withContext(Dispatchers.IO) {
-        val rootPath = java.nio.file.Paths.get(path)
-        if (!java.nio.file.Files.exists(rootPath) || !java.nio.file.Files.isDirectory(rootPath)) {
+        val directory = File(path)
+        if (!directory.exists() || !directory.isDirectory) {
             return@withContext emptyList()
         }
 
-        val files = mutableListOf<FileModel>()
-        try {
-            java.nio.file.Files.newDirectoryStream(rootPath).use { stream ->
-                for (entry in stream) {
-                    val file = entry.toFile() // Minimal usage for compatibility
-                    val isDir = java.nio.file.Files.isDirectory(entry)
-                    val mimeType = if (!isDir) context.contentResolver.getType(Uri.fromFile(file)) else null
-                    
-                    // Optimization: Use Files.list for counting, but cap it or catch exceptions
-                    val itemCount = if (isDir) {
-                        try {
-                            java.nio.file.Files.list(entry).count().toInt() 
-                        } catch (e: Exception) { 0 }
-                    } else 0
-                    
-                    // Read attributes efficiently
-                    val attrs = java.nio.file.Files.readAttributes(entry, java.nio.file.attribute.BasicFileAttributes::class.java)
-                    
-                    files.add(FileModel(
-                        id = file.hashCode().toLong(),
-                        name = file.name,
-                        path = file.path,
-                        size = if (!isDir) attrs.size() else 0,
-                        dateModified = attrs.lastModifiedTime().toMillis(),
-                        mimeType = mimeType,
-                        type = determineFileType(mimeType, file.name),
-                        isDirectory = isDir,
-                        itemCount = itemCount
-                    ))
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        
-        return@withContext files.sortedWith(compareBy({ !it.isDirectory }, { it.name }))
-    }
-    
-
-
-    suspend fun getAverageDailyUsageBytes(): Long = withContext(Dispatchers.IO) {
-        // Calculate usage in the last 30 days
-        val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
-        
-        val projection = arrayOf("sum(${MediaStore.Files.FileColumns.SIZE})")
-        val selection = "${MediaStore.Files.FileColumns.DATE_MODIFIED} > ?"
-        val selectionArgs = arrayOf((thirtyDaysAgo / 1000).toString()) // Date modified is in seconds
-        
-        val queryUri = MediaStore.Files.getContentUri("external")
-        
-        var recentUsageBytes: Long = 0
-        try {
-            context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    recentUsageBytes = cursor.getLong(0)
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return@withContext 0L
-        }
-        
-        if (recentUsageBytes <= 0) return@withContext 0L
-        return@withContext (recentUsageBytes / 30.0).toLong()
+        val files = directory.listFiles()
+        files?.mapNotNull { file ->
+            val mimeType = if (file.isFile) context.contentResolver.getType(Uri.fromFile(file)) else null
+            val itemCount = if (file.isDirectory) file.list()?.size ?: 0 else 0
+            FileModel(
+                id = file.hashCode().toLong(), // Simple ID
+                name = file.name,
+                path = file.path,
+                size = if (file.isFile) file.length() else 0,
+                dateModified = file.lastModified(),
+                mimeType = mimeType,
+                type = determineFileType(mimeType, file.name),
+                isDirectory = file.isDirectory,
+                itemCount = itemCount
+            )
+        }?.sortedWith(compareBy({ !it.isDirectory }, { it.name })) ?: emptyList()
     }
 
     suspend fun calculateStorageForecast(): String = withContext(Dispatchers.IO) {
+        val totalBytes = Environment.getExternalStorageDirectory().totalSpace
         val freeBytes = Environment.getExternalStorageDirectory().freeSpace
-        val dailyRate = getAverageDailyUsageBytes()
+
+        // Calculate usage in the last 30 days
+        val recentUsageBytes = getAverageDailyUsageBytes() * 30
+
+        if (recentUsageBytes <= 0) return@withContext "Stable"
         
+        val dailyRate = recentUsageBytes / 30f
         if (dailyRate <= 0) return@withContext "Stable"
 
-        val daysUntilFull = (freeBytes / dailyRate)
+        val daysUntilFull = (freeBytes / dailyRate).toLong()
 
         return@withContext when {
             daysUntilFull < 1 -> "< 1 day"
@@ -147,35 +105,17 @@ class FileRepository(private val context: Context) {
 
     private fun scanForEmptyFolders(directory: File, list: MutableList<File>, depth: Int) {
         if (depth > 3) return // Prevent deep scan for performance
-        val dirPath = directory.toPath()
-        
-        // Safety check for Android system folders
-        if (directory.name == "Android") return
+        val files = directory.listFiles()
+        if (files == null) return
 
-        try {
-            var hasFiles = false
-            // Use NIO DirectoryStream to avoid loading all files into memory array
-            java.nio.file.Files.newDirectoryStream(dirPath).use { stream ->
-                for (entry in stream) {
-                    hasFiles = true
-                    if (java.nio.file.Files.isDirectory(entry)) {
-                        scanForEmptyFolders(entry.toFile(), list, depth + 1)
-                    }
-                    // If we find files (non-directories), we mark as hasFiles=true (already done)
-                    // We continue scanning subdirectories to find nested empty folders, 
-                    // but WE DO NOT return early if we want to find nested empty folders?
-                    // Actually, if we just want "Empty Folders", a folder containing other folders is NOT empty itself.
-                    // But the logic usually is: Find ALL folders that are empty.
-                    // So we continue iterating.
+        if (files.isEmpty() && directory.name != "Android") { // Don't delete Android system folder
+            list.add(directory)
+        } else {
+            for (file in files) {
+                if (file.isDirectory) {
+                    scanForEmptyFolders(file, list, depth + 1)
                 }
             }
-            
-            // If loop finish and hasFiles is false -> It's truly empty
-            if (!hasFiles) {
-                list.add(directory)
-            }
-        } catch (e: Exception) {
-            // Permission denied or other error
         }
     }
 
@@ -400,7 +340,7 @@ class FileRepository(private val context: Context) {
             name.endsWith(".mp3", true) || name.endsWith(".wav", true) || name.endsWith(".m4a", true) || name.endsWith(".ogg", true) || name.endsWith(".flac", true) -> FileType.AUDIO
             name.endsWith(".apk", true) -> FileType.APK
             name.endsWith(".zip", true) || name.endsWith(".rar", true) || name.endsWith(".7z", true) -> FileType.ARCHIVE
-            name.endsWith(".pdf", true) || name.endsWith(".doc", true) || name.endsWith(".docx", true) || name.endsWith(".xls", true) || name.endsWith(".xlsx", true) || name.endsWith(".ppt", true) || name.endsWith(".pptx", true) || name.endsWith(".txt", true) -> FileType.DOCUMENT
+            name.endsWith(".pdf", true) || name.endsWith(".doc", true) || name.endsWith(".docx", true) || name.endsWith(".xls", true) || name.endsWith(".xlsx", true) || name.endsWith(".ppt", true) || name.endsWith(".pptx", true) || name.endsWith("txt", true) -> FileType.DOCUMENT
             else -> FileType.OTHERS
         }
     }
@@ -550,6 +490,24 @@ class FileRepository(private val context: Context) {
         }
     }
 
+    suspend fun getAverageDailyUsageBytes(): Long = withContext(Dispatchers.IO) {
+        val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+        val projection = arrayOf("sum(${MediaStore.Files.FileColumns.SIZE})")
+        val selection = "${MediaStore.Files.FileColumns.DATE_MODIFIED} > ?"
+        val selectionArgs = arrayOf((thirtyDaysAgo / 1000).toString())
+        val queryUri = MediaStore.Files.getContentUri("external")
+        var recentUsageBytes: Long = 0
+        try {
+            context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    recentUsageBytes = cursor.getLong(0)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        if (recentUsageBytes > 0) recentUsageBytes / 30 else 0
+    }
 
 
     private fun getCategorySize(mediaType: Int): Long {
