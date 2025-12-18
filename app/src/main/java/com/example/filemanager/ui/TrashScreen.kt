@@ -47,7 +47,7 @@ fun TrashScreen(
 ) {
     val trashedFiles by viewModel.trashedFiles.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+
 
     var selectionMode by remember { mutableStateOf(false) }
     var selectedItems by remember { mutableStateOf(setOf<TrashedFile>()) }
@@ -100,7 +100,6 @@ fun TrashScreen(
                     onDeleteForever = { showDeleteConfirmation = true }
                 )
             } else if (showTopBar) {
-            } else if (showTopBar) {
                 TrashTopAppBar(
                     onBack = onBack,
                     onEmptyTrash = {
@@ -108,8 +107,8 @@ fun TrashScreen(
                     }
                 )
             }
-            }
         }
+
     ) { padding ->
         Box(
             modifier = Modifier
@@ -177,8 +176,7 @@ fun ConfirmationDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
+
 fun TrashTopAppBar(
     onBack: () -> Unit,
     onEmptyTrash: () -> Unit
