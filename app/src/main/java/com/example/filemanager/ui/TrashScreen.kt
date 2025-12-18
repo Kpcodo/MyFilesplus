@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,6 +46,7 @@ fun TrashScreen(
 ) {
     val trashedFiles by viewModel.trashedFiles.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val trashSearchQuery by viewModel.trashSearchQuery.collectAsState()
 
     var selectionMode by remember { mutableStateOf(false) }
     var selectedItems by remember { mutableStateOf(setOf<TrashedFile>()) }
@@ -101,7 +103,9 @@ fun TrashScreen(
                     onBack = onBack,
                     onEmptyTrash = {
                         viewModel.emptyTrash()
-                    }
+                    },
+                    searchQuery = trashSearchQuery,
+                    onSearchQueryChange = { viewModel.updateTrashSearchQuery(it) }
                 )
             }
         }
@@ -172,33 +176,75 @@ fun ConfirmationDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrashTopAppBar(onBack: () -> Unit, onEmptyTrash: () -> Unit) {
+fun TrashTopAppBar(
+    onBack: () -> Unit,
+    onEmptyTrash: () -> Unit,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit
+) {
     var showMenu by remember { mutableStateOf(false) }
-    TopAppBar(
-        title = { Text("Bin") },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-        },
-        actions = {
-            IconButton(onClick = { /* TODO: Search */ }) {
-                Icon(Icons.Default.Search, contentDescription = "Search")
-            }
-            IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More Options")
-            }
-            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                DropdownMenuItem(
-                    text = { Text("Empty Trash") },
-                    onClick = {
-                        onEmptyTrash()
-                        showMenu = false
-                    }
+    var isSearchActive by remember { mutableStateOf(false) }
+
+    if (isSearchActive) {
+        TopAppBar(
+            title = {
+                TextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    placeholder = { Text("Search trash...") },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 )
+            },
+            navigationIcon = {
+                IconButton(onClick = {
+                    isSearchActive = false
+                    onSearchQueryChange("")
+                }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close Search")
+                }
+            },
+            actions = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear Search")
+                    }
+                }
             }
-        }
-    )
+        )
+    } else {
+        TopAppBar(
+            title = { Text("Bin") },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+            },
+            actions = {
+                IconButton(onClick = { isSearchActive = true }) {
+                    Icon(Icons.Default.Search, contentDescription = "Search")
+                }
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More Options")
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Empty Trash") },
+                        onClick = {
+                            onEmptyTrash()
+                            showMenu = false
+                        }
+                    )
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
