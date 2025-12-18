@@ -409,6 +409,14 @@ fun AppNavigation(
         composable("forecast_detail") {
             com.example.filemanager.ui.ForecastScreen(
                 viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onCleanupClick = { navController.navigate("cleanup_recommendations") }
+            )
+        }
+
+        composable("cleanup_recommendations") {
+            com.example.filemanager.ui.CleanupRecommendationsScreen(
+                viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )
         }

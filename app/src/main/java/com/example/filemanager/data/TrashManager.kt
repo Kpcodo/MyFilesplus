@@ -196,6 +196,8 @@ class TrashManager(private val context: Context) {
     }
 
     suspend fun cleanupExpiredFiles(retentionDays: Int): Int = withContext(Dispatchers.IO) {
+        if (retentionDays < 0) return@withContext 0 // Feature disabled
+        
         val retentionMillis = retentionDays * 24 * 60 * 60 * 1000L
         val cutoffTime = System.currentTimeMillis() - retentionMillis
         val trashedFiles = getTrashedFiles()

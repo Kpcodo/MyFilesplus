@@ -3,6 +3,7 @@ package com.example.filemanager.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,11 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -57,24 +54,20 @@ import androidx.compose.ui.unit.sp
 import com.example.filemanager.data.FileModel
 import com.example.filemanager.data.FileUtils
 import com.example.filemanager.data.StorageInfo
-import com.example.filemanager.ui.components.LiquidCleaningOverlay
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForecastScreen(
     viewModel: HomeViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onCleanupClick: () -> Unit
 ) {
     val forecastText by viewModel.forecastText.collectAsState()
     val dailyUsageBytes by viewModel.dailyUsageRate.collectAsState()
-    val largeFiles by viewModel.largeFiles.collectAsState()
     val storageInfo by viewModel.storageInfo.collectAsState()
     val estimatedFullDate by viewModel.estimatedFullDate.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-
-    var showAnimation by remember { mutableStateOf(false) }
-    var fileToDeleteSize by remember { mutableStateOf(0L) }
-
+    
     LaunchedEffect(Unit) {
         viewModel.loadStorageInfo()
         viewModel.loadForecastDetails()
@@ -104,7 +97,7 @@ fun ForecastScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 1. Prediction Card (moved up since Health Card is gone)
+                    // 1. Prediction Card
                     item {
                         PredictionCard(forecastText, estimatedFullDate, dailyUsageBytes, currentStorageInfo)
                     }
@@ -114,70 +107,37 @@ fun ForecastScreen(
                         StorageBreakdownCard(currentStorageInfo)
                     }
 
-                    // 3. Cleanup Recommendations Hub
+                    // 3. Smart Suggestions Entry
                     item {
-                        Text(
-                            text = "Cleanup Recommendations",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-
-                    // A. Unused Files (Empty Folders)
-                    item {
-                         val ghostFiles by viewModel.ghostFiles.collectAsState()
-                         if (ghostFiles.isNotEmpty()) {
-                             Card(
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                                modifier = Modifier.fillMaxWidth()
-                             ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.CleaningServices, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Unused Files", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                        Text("${ghostFiles.size} empty folders found", style = MaterialTheme.typography.bodySmall)
-                                    }
-                                    TextButton(onClick = { viewModel.deleteAllGhostFiles() }) {
-                                        Text("Clean")
-                                    }
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Smart Suggestions",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Review files to reclaim space",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                             }
-                         }
-                    }
-
-                    // B. Large Files Header/Card
-                    item {
-                        // Just a sub-header for the list
-                         Text(
-                            text = "Large Files",
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                        )
-                    }
-
-                    // C. Large Files List
-                    if (largeFiles.isEmpty() && !isLoading) {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                Text("No large files found.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                TextButton(onClick = onCleanupClick) {
+                                    Text("Clear")
+                                }
                             }
-                        }
-                    } else {
-                        items(largeFiles, key = { it.path }) { file ->
-                            LargeFileItem(
-                                file = file,
-                                onDelete = {
-                                    fileToDeleteSize = file.size
-                                    showAnimation = true
-                                    viewModel.deleteLargeFile(file)
-                                }
-                            )
                         }
                     }
                 }
@@ -187,12 +147,6 @@ fun ForecastScreen(
                     CircularProgressIndicator()
                 }
             }
-            
-            LiquidCleaningOverlay(
-                isVisible = showAnimation,
-                amountToClean = fileToDeleteSize,
-                onFinished = { showAnimation = false }
-            )
         }
     }
 }
@@ -317,13 +271,14 @@ fun StorageBreakdownCard(info: StorageInfo) {
                     .clip(RoundedCornerShape(6.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                val total = info.usedBytes.toFloat().coerceAtLeast(1f)
+                val total = info.totalBytes.toFloat().coerceAtLeast(1f)
                 
                 if (info.imageBytes > 0) Box(Modifier.weight(info.imageBytes / total).fillMaxSize().background(Color(0xFF6750a4))) // Purple
                 if (info.videoBytes > 0) Box(Modifier.weight(info.videoBytes / total).fillMaxSize().background(Color(0xFF4285F4))) // Blue
                 if (info.audioBytes > 0) Box(Modifier.weight(info.audioBytes / total).fillMaxSize().background(Color(0xFF009688))) // Teal
                 if (info.documentBytes > 0) Box(Modifier.weight(info.documentBytes / total).fillMaxSize().background(Color(0xFFFFC107))) // Amber
                 if (info.otherBytes > 0) Box(Modifier.weight(info.otherBytes / total).fillMaxSize().background(Color(0xFFe8b688))) // Peach
+                if (info.freeBytes > 0) Box(Modifier.weight(info.freeBytes / total).fillMaxSize().background(Color.LightGray)) // Free Space
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -335,6 +290,7 @@ fun StorageBreakdownCard(info: StorageInfo) {
                 BreakdownItem("Audio", info.audioBytes, Color(0xFF009688))
                 BreakdownItem("Docs", info.documentBytes, Color(0xFFFFC107))
                 BreakdownItem("Other", info.otherBytes, Color(0xFFe8b688))
+                BreakdownItem("Free", info.freeBytes, Color.LightGray)
             }
         }
     }
@@ -350,54 +306,4 @@ fun BreakdownItem(label: String, size: Long, color: Color) {
     }
 }
 
-@Composable
-fun LargeFileItem(
-    file: FileModel,
-    onDelete: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.InsertDriveFile,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(24.dp)
-            )
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = file.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = FileUtils.formatSize(file.size),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
+

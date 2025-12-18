@@ -309,9 +309,15 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val days = state.trashRetentionDays
-                    val presetValues = listOf(30, 180, 365)
+                    val presetValues = listOf(-1, 30, 180, 365)
                     val isCustom = days !in presetValues
 
+                    FilterChip(
+                        selected = days == -1,
+                        onClick = { viewModel.setTrashRetentionDays(-1) },
+                        label = { Text("Off") },
+                        leadingIcon = if (days == -1) { { Icon(Icons.Default.Check, null) } } else null
+                    )
                     FilterChip(
                         selected = days == 30,
                         onClick = { viewModel.setTrashRetentionDays(30) },
@@ -338,7 +344,7 @@ fun SettingsScreen(
                     )
                 }
                 
-                if (state.trashRetentionDays !in listOf(30, 180, 365)) {
+                if (state.trashRetentionDays != -1 && state.trashRetentionDays !in listOf(30, 180, 365)) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         "Custom Duration: ${state.trashRetentionDays} days", 
@@ -347,13 +353,18 @@ fun SettingsScreen(
                     Slider(
                         value = state.trashRetentionDays.toFloat(),
                         onValueChange = { viewModel.setTrashRetentionDays(it.toInt()) },
-                        valueRange = 1f..730f, // Up to 2 years
-                        steps = 0 // Continuous or specific steps? continuous is fine
+                        valueRange = 1f..730f, 
+                        steps = 0 
                     )
                 } else {
                      Spacer(modifier = Modifier.height(8.dp))
+                     val infoText = if (state.trashRetentionDays == -1) {
+                         "Auto-deletion is disabled. Files will stay in Bin until manually deleted."
+                     } else {
+                         "Files will be permanently deleted after ${state.trashRetentionDays} days."
+                     }
                      Text(
-                        "Files will be permanently deleted after ${state.trashRetentionDays} days.", 
+                        infoText, 
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
