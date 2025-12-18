@@ -32,6 +32,7 @@ import com.example.filemanager.R
 fun StorageDashboard(
     storageInfo: StorageInfo,
     trashSize: Long,
+    cacheSize: Long, // Added parameter
     emptyFoldersCount: Int,
     forecastText: String,
     onFreeUpClick: () -> Unit,
@@ -104,7 +105,7 @@ fun StorageDashboard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Free up ${FileUtils.formatSize(trashSize)}", fontSize = 12.sp)
+                    Text(text = "Free up ${FileUtils.formatSize(cacheSize)}", fontSize = 12.sp)
                 }
             }
 

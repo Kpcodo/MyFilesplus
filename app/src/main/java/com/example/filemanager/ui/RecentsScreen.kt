@@ -57,6 +57,11 @@ fun RecentsScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    
+    val swipeDeleteEnabledSetting by viewModel.swipeDeleteEnabled.collectAsState()
+    val isSwipeNavigationEnabled by viewModel.isSwipeNavigationEnabled.collectAsState()
+    val effectiveSwipeDeleteEnabled = swipeDeleteEnabledSetting && !isSwipeNavigationEnabled
+    val effectiveSwipeDeleteDirection by viewModel.swipeDeleteDirection.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadRecentFiles()
@@ -115,7 +120,7 @@ fun RecentsScreen(
                             }
                             
                             items(files, key = { it.id }) { file ->
-                                if (swipeDeleteEnabled) {
+                                if (effectiveSwipeDeleteEnabled) {
                                     val currentPath = file.path
                                     val dismissState = rememberSwipeToDismissBoxState(
                                         confirmValueChange = { value ->
@@ -147,7 +152,7 @@ fun RecentsScreen(
                                     // Map Direction
                                     // 0 = Left Swipe (EndToStart), 1 = Right Swipe (StartToEnd)
                                     // We want to ENABLE only the configured direction.
-                                    val directions = if (swipeDeleteDirection == 0) {
+                                    val directions = if (effectiveSwipeDeleteDirection == 0) {
                                         setOf(SwipeToDismissBoxValue.EndToStart) 
                                     } else {
                                         setOf(SwipeToDismissBoxValue.StartToEnd)
@@ -176,8 +181,8 @@ fun RecentsScreen(
                                                 }
                                             }
                                         },
-                                        enableDismissFromStartToEnd = swipeDeleteDirection == 1,
-                                        enableDismissFromEndToStart = swipeDeleteDirection == 0,
+                                        enableDismissFromStartToEnd = effectiveSwipeDeleteDirection == 1,
+                                        enableDismissFromEndToStart = effectiveSwipeDeleteDirection == 0,
                                         content = {
                                             Box(modifier = Modifier
                                                 .background(MaterialTheme.colorScheme.surface)

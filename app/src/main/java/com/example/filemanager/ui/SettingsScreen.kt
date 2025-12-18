@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -251,22 +252,24 @@ fun SettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
                 // Swipe to Delete Config
+                val isSwipeDeleteBlocked = state.isSwipeNavigationEnabled
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().alpha(if (isSwipeDeleteBlocked) 0.5f else 1f),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Swipe to Delete (Recents)", style = MaterialTheme.typography.bodyLarge)
+                        Text("Swipe to Delete", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Swipe items to move them to Bin",
+                            if (isSwipeDeleteBlocked) "Disabled by Swipe Navigation" else "Swipe items to move them to Bin",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
                         checked = state.swipeDeleteEnabled,
-                        onCheckedChange = { viewModel.toggleSwipeDelete(it) }
+                        onCheckedChange = { viewModel.toggleSwipeDelete(it) },
+                        enabled = !isSwipeDeleteBlocked
                     )
                 }
 

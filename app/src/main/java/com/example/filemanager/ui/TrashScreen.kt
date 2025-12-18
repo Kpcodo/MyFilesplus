@@ -67,7 +67,7 @@ fun TrashScreen(
                 title = stringResource(R.string.restore_files_title),
                 message = stringResource(R.string.restore_files_message),
                 onConfirm = {
-                    selectedItems.forEach { viewModel.restoreFile(it) }
+                    viewModel.restoreFiles(selectedItems.toList())
                     selectionMode = false
                     selectedItems = setOf()
                     shownDialog = DialogType.NONE
@@ -80,7 +80,7 @@ fun TrashScreen(
                 title = stringResource(R.string.delete_permanently_title),
                 message = stringResource(R.string.delete_permanently_message),
                 onConfirm = {
-                    selectedItems.forEach { viewModel.deleteFilePermanently(it) }
+                    viewModel.deleteFilesPermanently(selectedItems.toList())
                     selectionMode = false
                     selectedItems = setOf()
                     shownDialog = DialogType.NONE

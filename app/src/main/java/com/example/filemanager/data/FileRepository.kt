@@ -105,6 +105,60 @@ class FileRepository(private val context: Context) {
         emptyFolders
     }
 
+    suspend fun getCacheSize(): Long = withContext(Dispatchers.IO) {
+        var size: Long = 0
+        try {
+            val cacheDir = context.cacheDir
+            val codeCacheDir = context.codeCacheDir
+            val externalCacheDir = context.externalCacheDir
+            
+            size += getDirSize(cacheDir)
+            size += getDirSize(codeCacheDir)
+            if (externalCacheDir != null) {
+                size += getDirSize(externalCacheDir)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        size
+    }
+
+    suspend fun clearCache(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val cacheDir = context.cacheDir
+            val codeCacheDir = context.codeCacheDir
+            val externalCacheDir = context.externalCacheDir
+            
+            deleteDirContents(cacheDir)
+            deleteDirContents(codeCacheDir)
+            if (externalCacheDir != null) {
+                deleteDirContents(externalCacheDir)
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    private fun getDirSize(dir: File): Long {
+        var size: Long = 0
+        if (dir.exists() && dir.isDirectory) {
+            dir.listFiles()?.forEach { file ->
+                size += if (file.isDirectory) getDirSize(file) else file.length()
+            }
+        }
+        return size
+    }
+
+    private fun deleteDirContents(dir: File) {
+        if (dir.exists() && dir.isDirectory) {
+            dir.listFiles()?.forEach { file ->
+                file.deleteRecursively()
+            }
+        }
+    }
+
     private fun scanForEmptyFolders(directory: File, list: MutableList<File>, depth: Int) {
         if (depth > 3) return // Prevent deep scan for performance
         val files = directory.listFiles()

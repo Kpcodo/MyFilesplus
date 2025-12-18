@@ -75,6 +75,7 @@ fun HomeScreen(
 ) {
     val storageInfo by viewModel.storageInfo.collectAsState()
     val trashSize by viewModel.trashSize.collectAsState()
+    val cacheSize by viewModel.cacheSize.collectAsState()
     val emptyFoldersCount by viewModel.emptyFoldersCount.collectAsState()
     val forecastText by viewModel.forecastText.collectAsState()
 
@@ -135,12 +136,13 @@ fun HomeScreen(
                     com.example.filemanager.ui.components.StorageDashboard(
                         storageInfo = it,
                         trashSize = trashSize,
+                        cacheSize = cacheSize,
                         emptyFoldersCount = emptyFoldersCount,
                         forecastText = forecastText,
                         onFreeUpClick = { 
-                            if (trashSize > 0) {
+                            if (cacheSize > 0) {
                                 showRocketAnimation = true
-                                viewModel.emptyTrash()
+                                viewModel.cleanTemporaryFiles()
                             }
                         },
                         onGhostFilesClick = onGhostFilesClick,

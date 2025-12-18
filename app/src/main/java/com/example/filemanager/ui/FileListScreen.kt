@@ -66,6 +66,10 @@ fun FileListScreen(
     var showInfoDialog by remember { mutableStateOf<FileModel?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val swipeDeleteEnabledSetting by viewModel.swipeDeleteEnabled.collectAsState()
+    val isSwipeNavigationEnabled by viewModel.isSwipeNavigationEnabled.collectAsState()
+    val swipeDeleteEnabled = swipeDeleteEnabledSetting && !isSwipeNavigationEnabled
+    val swipeDeleteDirection by viewModel.swipeDeleteDirection.collectAsState()
 
     LaunchedEffect(fileType) {
         viewModel.loadFilesByCategory(fileType)
@@ -235,7 +239,12 @@ fun FileListScreen(
                         items(files, key = { it.id }) { file ->
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { value ->
-                                    if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    if (!swipeDeleteEnabled) return@rememberSwipeToDismissBoxState false
+                                    
+                                    val isCorrectDirection = (swipeDeleteDirection == 0 && value == SwipeToDismissBoxValue.EndToStart) ||
+                                            (swipeDeleteDirection == 1 && value == SwipeToDismissBoxValue.StartToEnd)
+
+                                    if (isCorrectDirection) {
                                         viewModel.deleteFilesAndReloadCategory(listOf(file.path), fileType)
                                         scope.launch {
                                             val result = snackbarHostState.showSnackbar(
@@ -258,8 +267,8 @@ fun FileListScreen(
 
                             SwipeToDismissBox(
                                 state = dismissState,
-                                enableDismissFromStartToEnd = false,
-                                enableDismissFromEndToStart = !selectionMode,
+                                enableDismissFromStartToEnd = swipeDeleteEnabled && swipeDeleteDirection == 1 && !selectionMode,
+                                enableDismissFromEndToStart = swipeDeleteEnabled && swipeDeleteDirection == 0 && !selectionMode,
                                 backgroundContent = {
                                     val color = if (dismissState.targetValue == SwipeToDismissBoxValue.Settled) Color.Transparent else Color.Red
                                     Box(

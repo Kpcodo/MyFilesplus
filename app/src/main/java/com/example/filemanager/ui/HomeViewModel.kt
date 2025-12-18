@@ -47,6 +47,36 @@ class HomeViewModel(
     private val _dailyUsageRate = MutableStateFlow<Long>(0)
     val dailyUsageRate: StateFlow<Long> = _dailyUsageRate.asStateFlow()
 
+    // Derived state for estimated full date
+    val estimatedFullDate: StateFlow<String> = combine(_storageInfo, _dailyUsageRate) { info, rate ->
+        if (info == null || rate <= 0) return@combine "Unknown"
+        val daysLeft = info.freeBytes / rate
+        if (daysLeft > 365 * 5) return@combine "More than 5 years"
+        
+        val calendar = java.util.Calendar.getInstance()
+        calendar.add(java.util.Calendar.DAY_OF_YEAR, daysLeft.toInt())
+        val dateFormat = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+        dateFormat.format(calendar.time)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Calculating...")
+
+    val swipeDeleteEnabled: StateFlow<Boolean> = settingsRepository.swipeDeleteEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val swipeDeleteDirection: StateFlow<Int> = settingsRepository.swipeDeleteDirection.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0 // 0 = Left
+    )
+
+    val isSwipeNavigationEnabled: StateFlow<Boolean> = settingsRepository.swipeNavigationEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
     private val _largeFiles = MutableStateFlow<List<FileModel>>(emptyList())
     val largeFiles: StateFlow<List<FileModel>> = _largeFiles.asStateFlow()
 
@@ -206,14 +236,20 @@ class HomeViewModel(
 
     fun deleteFilesAndReloadCategory(paths: List<String>, type: FileType) {
         viewModelScope.launch {
-            _isLoading.value = true
+            // Optimistic Update: Immediately remove from list
+            val currentList = _files.value
+            _files.value = currentList.filter { it.path !in paths }
+
+            // Perform deletion in background
             try {
                 paths.forEach { repository.deleteFile(it) }
-                _files.value = repository.getFilesByCategory(type)
+                // Silent refresh to ensure consistency, but don't show loading
+                val freshList = repository.getFilesByCategory(type)
+                _files.value = freshList
             } catch (e: Exception) {
+                // Revert on error
+                _files.value = currentList
                 showMessage("Error deleting files: ${e.message}")
-            } finally {
-                _isLoading.value = false
             }
         }
     }
@@ -275,6 +311,33 @@ class HomeViewModel(
         viewModelScope.launch {
             if (repository.deleteFilePermanently(trashedFile)) {
                 loadTrashedFiles()
+                _trashSize.value = repository.getTrashSize()
+            }
+        }
+    }
+
+    fun restoreFiles(trashedFiles: List<com.example.filemanager.data.TrashedFile>) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                trashedFiles.forEach { repository.restoreFile(it) }
+                loadTrashedFiles()
+                _trashSize.value = repository.getTrashSize()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteFilesPermanently(trashedFiles: List<com.example.filemanager.data.TrashedFile>) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                trashedFiles.forEach { repository.deleteFilePermanently(it) }
+                loadTrashedFiles()
+                _trashSize.value = repository.getTrashSize()
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -372,6 +435,7 @@ class HomeViewModel(
             val emptyFoldersDeferred = async { repository.getEmptyFolders() }
             val largeFilesDeferred = async { repository.getLargeFiles().size }
             val forecastTextDeferred = async { repository.calculateStorageForecast() }
+            val cacheSizeDeferred = async { repository.getCacheSize() }
 
             _trashSize.value = trashSizeDeferred.await()
             val emptyFolders = emptyFoldersDeferred.await()
@@ -379,6 +443,7 @@ class HomeViewModel(
             _emptyFoldersCount.value = emptyFolders.size
             _largeFilesCount.value = largeFilesDeferred.await()
             _forecastText.value = forecastTextDeferred.await()
+            _cacheSize.value = cacheSizeDeferred.await()
         }
     }
 
@@ -408,6 +473,22 @@ class HomeViewModel(
                 showMessage("Error deleting ghost files: ${e.message}")
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    private val _cacheSize = MutableStateFlow<Long>(0)
+    val cacheSize: StateFlow<Long> = _cacheSize.asStateFlow()
+
+    fun cleanTemporaryFiles() {
+        viewModelScope.launch {
+            if (repository.clearCache()) {
+                _cacheSize.value = 0
+                showMessage("Temporary files cleaned")
+                // Determine if we should reload other data? Maybe storage info changes slightly.
+                loadStorageInfo()
+            } else {
+                showMessage("Failed to clean some temporary files")
             }
         }
     }

@@ -32,27 +32,55 @@ class TrashManager(private val context: Context) {
 
         try {
             if (file.renameTo(trashedFile)) {
-                // Record metadata
-                val trashedMetadata = TrashedFile(
-                    id = System.currentTimeMillis(),
-                    originalPath = file.absolutePath,
-                    trashPath = trashedFile.absolutePath,
-                    name = file.name,
-                    size = trashedFile.length(),
-                    dateDeleted = System.currentTimeMillis(),
-                    type = determineFileType(file.name),
-                    preview = if (
-                        determineFileType(file.name) == FileType.IMAGE ||
-                        determineFileType(file.name) == FileType.VIDEO
-                    ) trashedFile.absolutePath else null
-                )
-                addMetadata(trashedMetadata)
-                return@withContext true
+               // Success on simple move
+               saveMetadata(file, trashedFile)
+               return@withContext true
+            } else {
+                // Fallback: Copy to trash, then delete original
+                try {
+                    file.copyTo(trashedFile, overwrite = true)
+                    // Try standard delete
+                    if (file.delete()) {
+                        saveMetadata(file, trashedFile)
+                        return@withContext true
+                    } else {
+                         // Try ContentResolver delete (Force delete for media files)
+                        if (deleteViaContentResolver(file)) {
+                             saveMetadata(file, trashedFile)
+                             return@withContext true
+                        }
+                        
+                        // Failed to delete original, rollback trash
+                        if (trashedFile.exists()) trashedFile.delete()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                     if (trashedFile.exists()) trashedFile.delete()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            // Cleanup on error
+            if (trashedFile.exists()) trashedFile.delete()
         }
         return@withContext false
+    }
+    
+    private fun saveMetadata(originalFile: File, trashedFile: File) {
+        val trashedMetadata = TrashedFile(
+            id = System.currentTimeMillis(),
+            originalPath = originalFile.absolutePath,
+            trashPath = trashedFile.absolutePath,
+            name = originalFile.name,
+            size = trashedFile.length(),
+            dateDeleted = System.currentTimeMillis(),
+            type = determineFileType(originalFile.name),
+            preview = if (
+                determineFileType(originalFile.name) == FileType.IMAGE ||
+                determineFileType(originalFile.name) == FileType.VIDEO
+            ) trashedFile.absolutePath else null
+        )
+        addMetadata(trashedMetadata)
     }
 
     suspend fun restoreFromTrash(trashedFile: TrashedFile): Boolean = withContext(Dispatchers.IO) {
@@ -70,6 +98,17 @@ class TrashManager(private val context: Context) {
         if (fileInTrash.renameTo(originalFile)) {
             removeMetadata(trashedFile)
             return@withContext true
+        } else {
+             // Fallback for restore
+             try {
+                fileInTrash.copyTo(originalFile, overwrite = true)
+                if (fileInTrash.delete()) {
+                     removeMetadata(trashedFile)
+                     return@withContext true
+                }
+             } catch(e: Exception) {
+                 e.printStackTrace()
+             }
         }
         return@withContext false
     }
@@ -150,6 +189,21 @@ class TrashManager(private val context: Context) {
             }
         }
         return@withContext allSuccess
+    }
+
+    private fun deleteViaContentResolver(file: File): Boolean {
+        return try {
+            val contentResolver = context.contentResolver
+            val externalUri = android.provider.MediaStore.Files.getContentUri("external")
+            val selection = "${android.provider.MediaStore.Files.FileColumns.DATA} = ?"
+            val selectionArgs = arrayOf(file.absolutePath)
+            
+            val rowsDeleted = contentResolver.delete(externalUri, selection, selectionArgs)
+            rowsDeleted > 0
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 
     // Copy of helper from Repository, ideally should be in common utils
