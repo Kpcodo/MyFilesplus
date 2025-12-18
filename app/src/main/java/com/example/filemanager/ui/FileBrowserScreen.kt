@@ -243,8 +243,7 @@ fun FileBrowserScreen(
             }
         }
     }
-        }
-    }
+
 
     if (fileToRename != null) {
         RenameDialog(
