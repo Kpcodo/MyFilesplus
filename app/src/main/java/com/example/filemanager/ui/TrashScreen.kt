@@ -58,6 +58,9 @@ fun TrashScreen(
     LaunchedEffect(Unit) {
         viewModel.loadTrashedFiles()
     }
+    
+    var showRestoreAllConfirmation by remember { mutableStateOf(false) }
+    var showEmptyTrashConfirmation by remember { mutableStateOf(false) }
 
     if (showRestoreConfirmation) {
         ConfirmationDialog(
@@ -101,48 +104,101 @@ fun TrashScreen(
                 )
             } else if (showTopBar) {
                 TrashTopAppBar(
-                    onBack = onBack,
-                    onEmptyTrash = {
-                        viewModel.emptyTrash()
-                    }
+                    onBack = onBack
                 )
             }
         }
 
     ) { padding ->
-        Box(
+        if (showRestoreAllConfirmation) {
+            ConfirmationDialog(
+                title = stringResource(R.string.restore_all_title),
+                message = stringResource(R.string.restore_all_message),
+                onConfirm = {
+                    viewModel.restoreAllFiles()
+                    showRestoreAllConfirmation = false
+                },
+                onDismiss = { showRestoreAllConfirmation = false }
+            )
+        }
+
+        if (showEmptyTrashConfirmation) {
+            ConfirmationDialog(
+                title = stringResource(R.string.empty_trash_title),
+                message = stringResource(R.string.empty_trash_message),
+                onConfirm = {
+                    viewModel.emptyTrash()
+                    showEmptyTrashConfirmation = false
+                },
+                onDismiss = { showEmptyTrashConfirmation = false }
+            )
+        }
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (trashedFiles.isEmpty()) {
-                Text(
-                    stringResource(R.string.trash_empty_message),
-                    modifier = Modifier.align(Alignment.Center),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            } else {
-                LazyColumn {
-                    items(trashedFiles, key = { it.id }) { file ->
-                        TrashedItem(
-                            file = file,
-                            isSelected = file in selectedItems,
-                            selectionMode = selectionMode,
-                            onClick = {
-                                if (selectionMode) {
-                                    selectedItems = if (file in selectedItems) selectedItems - file else selectedItems + file
-                                    if (selectedItems.isEmpty()) selectionMode = false
-                                } else {
-                                    // Single tap could open restore/delete dialog for that one item
+            // Persistent buttons row
+             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                OutlinedButton(
+                    onClick = { showRestoreAllConfirmation = true },
+                    modifier = Modifier.weight(1f).padding(end = 4.dp)
+                ) {
+                    Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.restore_all))
+                }
+                OutlinedButton(
+                    onClick = { showEmptyTrashConfirmation = true },
+                    modifier = Modifier.weight(1f).padding(start = 4.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.delete_all))
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                } else if (trashedFiles.isEmpty()) {
+                    Text(
+                        stringResource(R.string.trash_empty_message),
+                        modifier = Modifier.align(Alignment.Center),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                } else {
+                    LazyColumn {
+                        items(trashedFiles, key = { it.id }) { file ->
+                            TrashedItem(
+                                file = file,
+                                isSelected = file in selectedItems,
+                                selectionMode = selectionMode,
+                                onClick = {
+                                    if (selectionMode) {
+                                        selectedItems = if (file in selectedItems) selectedItems - file else selectedItems + file
+                                        if (selectedItems.isEmpty()) selectionMode = false
+                                    } else {
+                                        // Single tap could open restore/delete dialog for that one item
+                                    }
+                                },
+                                onLongClick = {
+                                    if (!selectionMode) selectionMode = true
+                                    selectedItems = selectedItems + file
                                 }
-                            },
-                            onLongClick = {
-                                if (!selectionMode) selectionMode = true
-                                selectedItems = selectedItems + file
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -176,32 +232,14 @@ fun ConfirmationDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-
 fun TrashTopAppBar(
-    onBack: () -> Unit,
-    onEmptyTrash: () -> Unit
+    onBack: () -> Unit
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
     TopAppBar(
         title = { Text(stringResource(R.string.trash_screen_title)) },
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_desc))
-            }
-        },
-        actions = {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options_desc))
-            }
-            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.action_empty_trash)) },
-                    onClick = {
-                        onEmptyTrash()
-                        showMenu = false
-                    }
-                )
             }
         }
     )

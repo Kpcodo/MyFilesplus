@@ -85,6 +85,8 @@ class FileRepository(private val context: Context) {
 
     suspend fun restoreFile(trashedFile: TrashedFile): Boolean = trashManager.restoreFromTrash(trashedFile)
 
+    suspend fun restoreAllFiles(): Boolean = trashManager.restoreAll()
+
     suspend fun deleteFilePermanently(trashedFile: TrashedFile): Boolean = trashManager.deletePermanently(trashedFile)
 
     suspend fun emptyTrash(): Boolean = trashManager.emptyTrash()

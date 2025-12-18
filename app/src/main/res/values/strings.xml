@@ -9,6 +9,12 @@
     <string name="action_restore">Restore</string>
     <string name="action_delete_forever">Delete Forever</string>
     <string name="action_empty_trash">Empty Trash</string>
+    <string name="restore_all_title">Restore All Files</string>
+    <string name="restore_all_message">Are you sure you want to restore all files from the trash?</string>
+    <string name="empty_trash_title">Empty Trash</string>
+    <string name="empty_trash_message">Are you sure you want to permanently delete all files? This action cannot be undone.</string>
+    <string name="restore_all">Restore All</string>
+    <string name="delete_all">Delete All</string>
     <string name="confirm">Confirm</string>
     <string name="cancel">Cancel</string>
     <string name="selected_count">%d selected</string>

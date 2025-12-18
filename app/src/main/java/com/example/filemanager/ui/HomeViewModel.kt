@@ -279,6 +279,14 @@ class HomeViewModel(
         }
     }
 
+    fun restoreAllFiles() {
+        viewModelScope.launch {
+            if (repository.restoreAllFiles()) {
+                loadTrashedFiles()
+            }
+        }
+    }
+
     fun emptyTrash() {
         viewModelScope.launch {
             if (repository.emptyTrash()) {

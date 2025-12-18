@@ -141,6 +141,17 @@ class TrashManager(private val context: Context) {
         }
     }
     
+    suspend fun restoreAll(): Boolean = withContext(Dispatchers.IO) {
+        val trashedFiles = getTrashedFiles()
+        var allSuccess = true
+        for (file in trashedFiles) {
+            if (!restoreFromTrash(file)) {
+                allSuccess = false
+            }
+        }
+        return@withContext allSuccess
+    }
+
     // Copy of helper from Repository, ideally should be in common utils
     private fun determineFileType(name: String): FileType {
         return when {

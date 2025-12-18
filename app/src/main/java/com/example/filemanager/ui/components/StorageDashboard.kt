@@ -118,13 +118,22 @@ fun StorageDashboard(
             // Legend
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                LegendItem(color = Color(0xFF6750a4), label = "Images & Video")
-                LegendItem(color = Color(0xFF9a82db), label = "Audio & Docs")
-                LegendItem(color = Color(0xFFe8b688), label = "Others")
-                LegendItem(color = MaterialTheme.colorScheme.surfaceVariant, label = "Free")
+                // First Row of Legend
+                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                         LegendItem(color = Color(0xFF6750a4), label = "Images")
+                         LegendItem(color = Color(0xFF4285F4), label = "Video")
+                         LegendItem(color = Color(0xFF009688), label = "Audio")
+                     }
+                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                         LegendItem(color = Color(0xFFFFC107), label = "Docs")
+                         LegendItem(color = Color(0xFFe8b688), label = "Others")
+                         LegendItem(color = MaterialTheme.colorScheme.surfaceVariant, label = "Free")
+                     }
+                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -177,12 +186,11 @@ fun StorageProgressBar(info: StorageInfo) {
     val totalStorage = info.totalBytes.toFloat().coerceAtLeast(1f)
     
     // Segments mapping
-    // Segment 1 (Deep Purple): Images + Video
-    val segment1 = (info.imageBytes + info.videoBytes).toFloat() / totalStorage
-    // Segment 2 (Light Purple): Audio + Docs
-    val segment2 = (info.audioBytes + info.documentBytes).toFloat() / totalStorage
-    // Segment 3 (Peach): Others
-    val segment3 = info.otherBytes.toFloat() / totalStorage
+    val imageSeg = info.imageBytes.toFloat() / totalStorage
+    val videoSeg = info.videoBytes.toFloat() / totalStorage
+    val audioSeg = info.audioBytes.toFloat() / totalStorage
+    val docSeg = info.documentBytes.toFloat() / totalStorage
+    val otherSeg = info.otherBytes.toFloat() / totalStorage
 
     // Use clip to ensure the whole bar has rounded corners, allowing segments to be simple Rects without gaps.
     Canvas(
@@ -197,8 +205,8 @@ fun StorageProgressBar(info: StorageInfo) {
 
         var currentX = 0f
         
-        // Segment 1
-        val w1 = width * segment1
+        // Image
+        val w1 = width * imageSeg
         if (w1 > 0) {
             drawRect(
                 color = Color(0xFF6750a4), // Deep Purple
@@ -208,26 +216,48 @@ fun StorageProgressBar(info: StorageInfo) {
             currentX += w1
         }
         
-        // Segment 2
-        val w2 = width * segment2
+        // Video
+        val w2 = width * videoSeg
         if (w2 > 0) {
              drawRect(
-                color = Color(0xFF9a82db), // Light Purple
+                color = Color(0xFF4285F4), // Blue
                 topLeft = Offset(currentX, 0f),
                 size = androidx.compose.ui.geometry.Size(w2, height)
             )
             currentX += w2
         }
 
-        // Segment 3
-        val w3 = width * segment3
+        // Audio
+        val w3 = width * audioSeg
         if (w3 > 0) {
              drawRect(
-                color = Color(0xFFe8b688), // Peach
+                color = Color(0xFF009688), // Teal
                 topLeft = Offset(currentX, 0f),
                 size = androidx.compose.ui.geometry.Size(w3, height)
             )
             currentX += w3
+        }
+
+        // Docs
+        val w4 = width * docSeg
+        if (w4 > 0) {
+             drawRect(
+                color = Color(0xFFFFC107), // Amber
+                topLeft = Offset(currentX, 0f),
+                size = androidx.compose.ui.geometry.Size(w4, height)
+            )
+            currentX += w4
+        }
+
+        // Others
+        val w5 = width * otherSeg
+        if (w5 > 0) {
+             drawRect(
+                color = Color(0xFFe8b688), // Peach
+                topLeft = Offset(currentX, 0f),
+                size = androidx.compose.ui.geometry.Size(w5, height)
+            )
+            currentX += w5
         }
     }
 }
