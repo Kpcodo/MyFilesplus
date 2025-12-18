@@ -1,0 +1,86 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/C:/Users/kayal/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/gradle-8.13/lib/native-platform-0.22-milestone-28.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:16:34 Unresolved reference 'BottomNavItem'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:158:9 Unresolved reference 'BottomNavItem'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:158:9 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:159:9 Unresolved reference 'BottomNavItem'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:160:9 Unresolved reference 'BottomNavItem'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:161:9 Unresolved reference 'BottomNavItem'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:172:36 Not enough information to infer type argument for 'T'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:172:46 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:174:61 Unresolved reference 'route'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:176:61 Unresolved reference 'route'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:181:38 Overload resolution ambiguity between candidates:
+@Composable() @ComposableTarget(...) fun Icon(bitmap: ImageBitmap, contentDescription: String?, modifier: Modifier = ..., tint: Color = ...): Unit
+@Composable() @ComposableTarget(...) fun Icon(painter: Painter, contentDescription: String?, modifier: Modifier = ..., tint: Color = ...): Unit
+@Composable() @ComposableTarget(...) fun Icon(imageVector: ImageVector, contentDescription: String?, modifier: Modifier = ..., tint: Color = ...): Unit
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:181:48 Unresolved reference 'icon'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:181:80 Unresolved reference 'title'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:182:39 Overload resolution ambiguity between candidates:
+@Composable() @ComposableTarget(...) fun Text(text: AnnotatedString, modifier: Modifier = ..., color: Color = ..., fontSize: TextUnit = ..., fontStyle: FontStyle? = ..., fontWeight: FontWeight? = ..., fontFamily: FontFamily? = ..., letterSpacing: TextUnit = ..., textDecoration: TextDecoration? = ..., textAlign: TextAlign? = ..., lineHeight: TextUnit = ..., overflow: TextOverflow = ..., softWrap: Boolean = ..., maxLines: Int = ..., minLines: Int = ..., inlineContent: Map<String, InlineTextContent> = ..., onTextLayout: (TextLayoutResult) -> Unit = ..., style: TextStyle = ...): Unit
+@Composable() @ComposableTarget(...) fun Text(text: String, modifier: Modifier = ..., color: Color = ..., fontSize: TextUnit = ..., fontStyle: FontStyle? = ..., fontWeight: FontWeight? = ..., fontFamily: FontFamily? = ..., letterSpacing: TextUnit = ..., textDecoration: TextDecoration? = ..., textAlign: TextAlign? = ..., lineHeight: TextUnit = ..., overflow: TextOverflow = ..., softWrap: Boolean = ..., maxLines: Int = ..., minLines: Int = ..., onTextLayout: ((TextLayoutResult) -> Unit)? = ..., style: TextStyle = ...): Unit
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:182:49 Unresolved reference 'title'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:346:17 No parameter with name 'onFileClick' found.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:346:33 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:347:30 Unresolved reference 'type'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:348:66 Unresolved reference 'path'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:354:17 No value passed for parameter 'onSearchClick'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:379:17 No value passed for parameter 'onDirectoryClick'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:379:17 No value passed for parameter 'onSearchClick'.
+e: file:///C:/Users/kayal/.gemini/antigravity/scratch/FileManagerApp/app/src/main/java/com/example/filemanager/MainActivity.kt:390:17 No value passed for parameter 'viewModel'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 9s
+30 actionable tasks: 1 executed, 29 up-to-date

@@ -1,0 +1,508 @@
+package com.example.filemanager
+
+import android.os.Bundle
+import android.os.Environment
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import coil.Coil
+import coil.ImageLoader
+import coil.decode.VideoFrameDecoder
+import com.example.filemanager.data.FileRepository
+import com.example.filemanager.data.FileType
+import com.example.filemanager.data.SettingsRepository
+import com.example.filemanager.ui.AllCategoriesScreen
+import com.example.filemanager.ui.FileBrowserScreen
+import com.example.filemanager.ui.FileListScreen
+import com.example.filemanager.ui.HomeScreen
+import com.example.filemanager.ui.HomeViewModel
+import com.example.filemanager.ui.HomeViewModelFactory
+import com.example.filemanager.ui.ImageViewerScreen
+import com.example.filemanager.ui.RecentsScreen
+import com.example.filemanager.ui.SettingsScreen
+import com.example.filemanager.ui.SettingsViewModel
+import com.example.filemanager.ui.SettingsViewModelFactory
+import com.example.filemanager.ui.StoragePermissionHandler
+import com.example.filemanager.ui.theme.FileManagerTheme
+import java.net.URLDecoder
+import java.net.URLEncoder
+import kotlin.math.abs
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val repository = FileRepository(applicationContext)
+        val settingsRepository = SettingsRepository(applicationContext)
+        val viewModelFactory = HomeViewModelFactory(repository, settingsRepository)
+
+        val imageLoader = ImageLoader.Builder(context = this)
+            .components { add(VideoFrameDecoder.Factory()) }
+            .crossfade(true)
+            .build()
+        Coil.setImageLoader(imageLoader)
+
+        // Settings Init
+        val settingsViewModelFactory = SettingsViewModelFactory(settingsRepository)
+
+        setContent {
+            val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
+            val settingsState by settingsViewModel.settingsState.collectAsState()
+
+            FileManagerTheme(
+                themeMode = settingsState.themeMode,
+                accentColor = settingsState.accentColor
+            ) {
+                // Animate background color change to smooth the transition
+                val animatedBackgroundColor by animateColorAsState(
+                    targetValue = MaterialTheme.colorScheme.background,
+                    animationSpec = tween(300),
+                    label = "BackgroundColorAnimation"
+                )
+
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = animatedBackgroundColor
+                ) {
+                    StoragePermissionHandler(
+                        onPermissionGranted = {
+                            val viewModel: HomeViewModel = viewModel(factory = viewModelFactory)
+                            MainScreen(viewModel, settingsViewModel)
+                        },
+                        onPermissionDenied = { requestPermission ->
+                            PermissionDeniedScreen(requestPermission)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionDeniedScreen(onRequestPermission: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Permission Required",
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "To manage your files, this app needs access to your device's storage. Please grant the necessary permissions.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = onRequestPermission) {
+                Text("Grant Permission")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
+    val navController = rememberNavController()
+    var showSearchOverlay by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val settingsState by settingsViewModel.settingsState.collectAsState()
+
+    val bottomNavItems = listOf(
+        BottomNavItem.Home,
+        BottomNavItem.Recents,
+        BottomNavItem.Trash,
+        BottomNavItem.Settings
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        val blurModifier = if (showSearchOverlay && settingsState.isSwipeNavigationEnabled && settingsState.isBlurEnabled) {
+             Modifier.blur(30.dp) 
+        } else if (showSearchOverlay && settingsState.isBlurEnabled) {
+             Modifier.blur(30.dp)
+        } else {
+             Modifier
+        }
+        
+        // Simplify logic: if showing search AND blur enabled -> Blur. Else -> Empty Modifier.
+        val effectiveBlur = if (showSearchOverlay && settingsState.isBlurEnabled) Modifier.blur(30.dp) else Modifier
+
+        Scaffold(
+            modifier = Modifier.then(effectiveBlur),
+            topBar = {
+                // If Swipe Navigation is enabled, Show a Global Top Bar
+                if (settingsState.isSwipeNavigationEnabled) {
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentRoute = navBackStackEntry?.destination?.route
+                    
+                    val title = when (currentRoute) {
+                        "home" -> "Home"
+                        "recents" -> "Recents"
+                        "trash" -> "Bin"
+                        "settings" -> "Settings"
+                        else -> "File Manager" // Fallback or empty
+                    }
+
+                    // Only show for main tabs
+                    if (currentRoute in listOf("home", "recents", "trash", "settings")) {
+                       androidx.compose.material3.CenterAlignedTopAppBar(
+                           title = { Text(title) }
+                       )
+                    }
+                }
+            },
+            bottomBar = {
+                // Hide Bottom Bar if Swipe Navigation is enabled
+                if (!settingsState.isSwipeNavigationEnabled) {
+                    NavigationBar {
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentRoute = navBackStackEntry?.destination?.route
+
+                        bottomNavItems.forEach { item ->
+                            val selected = currentRoute == item.route
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.startDestinationId)
+                                        launchSingleTop = true
+                                    }
+                                },
+                                icon = { 
+                                    Icon(
+                                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon, 
+                                        contentDescription = item.title
+                                    )
+                                 },
+                                label = { Text(item.title) }
+                            )
+                        }
+                    }
+                }
+            }
+        ) { innerPadding ->
+            val swipeModifier = if (settingsState.isSwipeNavigationEnabled) {
+                Modifier.pointerInput(Unit) {
+                    var totalDrag = 0f
+                    var hasNavigated = false
+                    
+                    detectHorizontalDragGestures(
+                        onDragStart = { 
+                            totalDrag = 0f 
+                            hasNavigated = false
+                        },
+                        onDragEnd = { 
+                            totalDrag = 0f 
+                            hasNavigated = false
+                        }
+                    ) { change, dragAmount ->
+                        if (hasNavigated) return@detectHorizontalDragGestures
+                        
+                        totalDrag += dragAmount
+                        
+                        // Detect Swipe
+                        val threshold = 50.dp.toPx()
+                        if (abs(totalDrag) > threshold) {
+                            change.consume()
+                            val navBackStackEntry = navController.currentBackStackEntry
+                            val currentRoute = navBackStackEntry?.destination?.route ?: "home"
+
+                            if (totalDrag < 0) { // Swipe Left (Next)
+                                when (currentRoute) {
+                                    "home" -> navController.navigate("recents") { popUpTo("home"); launchSingleTop = true }
+                                    "recents" -> navController.navigate("trash") { popUpTo("home"); launchSingleTop = true }
+                                    "trash" -> navController.navigate("settings") { popUpTo("home"); launchSingleTop = true }
+                                }
+                            } else { // Swipe Right (Previous)
+                                when (currentRoute) {
+                                    "recents" -> navController.navigate("home") { popUpTo("home"); launchSingleTop = true }
+                                    "trash" -> navController.navigate("recents") { popUpTo("home"); launchSingleTop = true }
+                                    "settings" -> navController.navigate("trash") { popUpTo("home"); launchSingleTop = true }
+                                }
+                            }
+                            hasNavigated = true
+                        }
+                    }
+                }
+            } else {
+                Modifier
+            }
+
+            AppNavigation(
+                navController = navController,
+                viewModel = viewModel,
+                settingsViewModel = settingsViewModel,
+                modifier = Modifier.padding(innerPadding).then(swipeModifier),
+                onRequestSearch = { showSearchOverlay = true },
+                isSwipeEnabled = settingsState.isSwipeNavigationEnabled
+            )
+        }
+
+        // Search Overlay
+        com.example.filemanager.ui.SearchOverlay(
+            viewModel = viewModel,
+            isVisible = showSearchOverlay,
+            onClose = { showSearchOverlay = false },
+            onFileClick = { file ->
+                showSearchOverlay = false
+                // Handle file click navigation
+                if (file.type == FileType.IMAGE) {
+                    val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                    navController.navigate("image_viewer/$encodedPath")
+                } else {
+                    com.example.filemanager.data.FileUtils.openFile(context, file)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun AppNavigation(
+    navController: NavHostController,
+    viewModel: HomeViewModel,
+    settingsViewModel: SettingsViewModel,
+    modifier: Modifier = Modifier,
+    onRequestSearch: () -> Unit,
+    isSwipeEnabled: Boolean
+) {
+    val context = LocalContext.current
+    val settingsState by settingsViewModel.settingsState.collectAsState()
+    
+    NavHost(navController = navController, startDestination = "home", modifier = modifier) {
+        composable(
+            route = "home",
+            enterTransition = { fadeIn(tween(300)) },
+            exitTransition = { fadeOut(tween(300)) }
+        ) {
+            HomeScreen(
+                viewModel = viewModel,
+                onCategoryClick = { type ->
+                    navController.navigate("fileList/${type.name}")
+                },
+                onInternalStorageClick = {
+                    val rootPath = Environment.getExternalStorageDirectory().path
+                    val encodedPath = URLEncoder.encode(rootPath, "UTF-8")
+                    navController.navigate("file_browser/$encodedPath")
+                },
+                onViewAllClick = {
+                    navController.navigate("categories_all")
+                },
+                onOtherStorageClick = {
+                    navController.navigate("other_storage")
+                },
+                onSearchClick = onRequestSearch,
+                onGhostFilesClick = { 
+                    navController.navigate("ghost_files")
+                },
+                onForecastClick = { 
+                    navController.navigate("forecast_detail")
+                }
+            )
+        }
+
+        composable(
+            route = "recents",
+            enterTransition = { fadeIn(tween(300)) },
+            exitTransition = { fadeOut(tween(300)) }
+        ) {
+            RecentsScreen(
+                viewModel = viewModel,
+                showTopBar = !isSwipeEnabled,
+                swipeDeleteEnabled = settingsState.swipeDeleteEnabled,
+                swipeDeleteDirection = settingsState.swipeDeleteDirection,
+                onFileClick = { file ->
+                    if (file.type == FileType.IMAGE) {
+                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                        navController.navigate("image_viewer/$encodedPath")
+                    } else {
+                        com.example.filemanager.data.FileUtils.openFile(context, file)
+                    }
+                }
+            )
+        }
+
+        composable("categories_all") {
+            AllCategoriesScreen(
+                onCategoryClick = { type -> navController.navigate("fileList/${type.name}") },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable("trash") {
+            com.example.filemanager.ui.TrashScreen(
+                viewModel = viewModel,
+                showTopBar = !isSwipeEnabled,
+                onBack = { navController.navigate("home") {
+                    popUpTo("home") { inclusive = true }
+                }}
+            )
+        }
+
+        composable("ghost_files") {
+            com.example.filemanager.ui.GhostFilesScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+
+        composable("forecast_detail") {
+            com.example.filemanager.ui.ForecastScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("settings") {
+            SettingsScreen(
+                viewModel = settingsViewModel,
+                showTopBar = !isSwipeEnabled,
+                onBack = { navController.navigate("home") }
+            )
+        }
+
+        composable(
+            route = "fileList/{type}",
+            arguments = listOf(navArgument("type") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val typeName = backStackEntry.arguments?.getString("type")
+            val type = runCatching { FileType.valueOf(typeName ?: "") }.getOrDefault(FileType.UNKNOWN)
+            FileListScreen(
+                viewModel = viewModel,
+                fileType = type,
+                onBack = { navController.popBackStack() },
+                onFileClick = { file ->
+                    if (file.type == FileType.IMAGE) {
+                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                        navController.navigate("image_viewer/$encodedPath")
+                    } else {
+                        com.example.filemanager.data.FileUtils.openFile(context, file)
+                    }
+                },
+                onSearchClick = onRequestSearch
+            )
+        }
+
+        composable(
+            route = "file_browser/{path}",
+            arguments = listOf(navArgument("path") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
+            val path = URLDecoder.decode(encodedPath, "UTF-8")
+            FileBrowserScreen(
+                viewModel = viewModel,
+                path = path,
+                onBack = { navController.popBackStack() },
+                onFileClick = { file ->
+                    if (file.isDirectory) {
+                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                        navController.navigate("file_browser/$encodedPath")
+                    } else {
+                        if (file.type == FileType.IMAGE) {
+                            val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                            navController.navigate("image_viewer/$encodedPath")
+                        } else {
+                            com.example.filemanager.data.FileUtils.openFile(context, file)
+                        }
+                    }
+                },
+                 onDirectoryClick = { 
+                    val encodedPath = URLEncoder.encode(it.path, "UTF-8")
+                    navController.navigate("file_browser/$encodedPath")
+                },
+                onSearchClick = onRequestSearch
+            )
+        }
+
+        composable(
+            route = "image_viewer/{path}",
+            arguments = listOf(navArgument("path") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
+            val path = URLDecoder.decode(encodedPath, "UTF-8")
+            ImageViewerScreen(
+                viewModel = viewModel,
+                path = path,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("other_storage") {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Other Storage Devices")
+            }
+        }
+    }
+}
+
+sealed class BottomNavItem(
+    val route: String, 
+    val selectedIcon: ImageVector, 
+    val unselectedIcon: ImageVector,
+    val title: String
+) {
+    object Home : BottomNavItem("home", Icons.Filled.Home, Icons.Outlined.Home, "Home")
+    object Recents : BottomNavItem("recents", Icons.Filled.History, Icons.Outlined.History, "Recents") 
+    object Trash : BottomNavItem("trash", Icons.Filled.Delete, Icons.Outlined.Delete, "Bin")
+    object Settings : BottomNavItem("settings", Icons.Filled.Settings, Icons.Outlined.Settings, "Settings")
+}
