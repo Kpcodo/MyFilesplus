@@ -223,7 +223,7 @@ class HomeViewModel(
             _isLoading.value = true
             try {
                 val destinationPath = file.path.substringBeforeLast(".")
-                val success = repository.extractZip(file.path, destinationPath)
+                val success = repository.extractArchive(file.path, destinationPath)
                 if (success) {
                     onSuccess()
                     showMessage("Extraction successful to $destinationPath")

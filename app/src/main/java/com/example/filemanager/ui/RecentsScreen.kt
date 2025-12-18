@@ -167,11 +167,13 @@ fun RecentsScreen(
                                                     .padding(horizontal = 24.dp),
                                                 contentAlignment = alignment
                                             ) {
-                                                Icon(
-                                                    Icons.Default.Delete,
-                                                    contentDescription = "Delete",
-                                                    tint = Color.White
-                                                )
+                                                if (dismissState.targetValue != SwipeToDismissBoxValue.Settled) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = "Delete",
+                                                        tint = Color.White
+                                                    )
+                                                }
                                             }
                                         },
                                         enableDismissFromStartToEnd = swipeDeleteDirection == 1,

@@ -38,6 +38,11 @@ import com.example.filemanager.data.FileUtils
 import com.example.filemanager.ui.components.FileItemMenu
 
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +65,7 @@ fun FileListScreen(
     var showRenameDialog by remember { mutableStateOf<FileModel?>(null) }
     var showInfoDialog by remember { mutableStateOf<FileModel?>(null) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(fileType) {
         viewModel.loadFilesByCategory(fileType)
@@ -207,6 +213,7 @@ fun FileListScreen(
                             "copy" -> viewModel.addToClipboard(file, ClipboardOperation.COPY)
                             "rename" -> showRenameDialog = file
                             "delete" -> viewModel.deleteFilesAndReloadCategory(listOf(file.path), fileType)
+                            "extract" -> showExtractDialog = file
                             "info" -> showInfoDialog = file
                             "share" -> {
                                 val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", java.io.File(file.path))
@@ -225,25 +232,72 @@ fun FileListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(vertical = 16.dp)
                     ) {
-                        items(files, key = { it.id }) { file -> 
-                            DetailedFileItem(
-                                file = file,
-                                isSelected = file.path in selectedItems,
-                                selectionMode = selectionMode,
-                                onClick = {
-                                    if (selectionMode) {
-                                        selectedItems = if (file.path in selectedItems) selectedItems - file.path else selectedItems + file.path
-                                        if (selectedItems.isEmpty()) selectionMode = false
+                        items(files, key = { it.id }) { file ->
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { value ->
+                                    if (value == SwipeToDismissBoxValue.EndToStart) {
+                                        viewModel.deleteFilesAndReloadCategory(listOf(file.path), fileType)
+                                        scope.launch {
+                                            val result = snackbarHostState.showSnackbar(
+                                                message = "Item moved to Bin",
+                                                actionLabel = "Undo",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                            if (result == SnackbarResult.ActionPerformed) {
+                                                viewModel.undoDelete(file.path) {
+                                                    viewModel.loadFilesByCategory(fileType)
+                                                }
+                                            }
+                                        }
+                                        true
                                     } else {
-                                        onFileClick(file)
+                                        false
                                     }
-                                },
-                                onLongClick = {
-                                    if (!selectionMode) selectionMode = true
-                                    selectedItems = selectedItems + file.path
-                                },
-                                onMenuAction = { action -> onMenuAction(file, action) }
+                                }
                             )
+
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                enableDismissFromStartToEnd = false,
+                                enableDismissFromEndToStart = !selectionMode,
+                                backgroundContent = {
+                                    val color = if (dismissState.targetValue == SwipeToDismissBoxValue.Settled) Color.Transparent else Color.Red
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(color, RoundedCornerShape(12.dp))
+                                            .padding(horizontal = 24.dp),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        if (dismissState.targetValue != SwipeToDismissBoxValue.Settled) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Delete",
+                                                tint = Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                DetailedFileItem(
+                                    file = file,
+                                    isSelected = file.path in selectedItems,
+                                    selectionMode = selectionMode,
+                                    onClick = {
+                                        if (selectionMode) {
+                                            selectedItems = if (file.path in selectedItems) selectedItems - file.path else selectedItems + file.path
+                                            if (selectedItems.isEmpty()) selectionMode = false
+                                        } else {
+                                            onFileClick(file)
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (!selectionMode) selectionMode = true
+                                        selectedItems = selectedItems + file.path
+                                    },
+                                    onMenuAction = { action -> onMenuAction(file, action) }
+                                )
+                            }
                         }
                     }
                 }
@@ -359,6 +413,7 @@ fun DetailedFileItem(
                     onCopy = { showMenu = false; onMenuAction("copy") },
                     onRename = { showMenu = false; onMenuAction("rename") },
                     onDelete = if (allowDelete) { { showMenu = false; onMenuAction("delete") } } else null,
+                    onExtract = if (file.type == FileType.ARCHIVE) { { showMenu = false; onMenuAction("extract") } } else null,
                     onInfo = { showMenu = false; onMenuAction("info") },
                     onShare = { showMenu = false; onMenuAction("share") }
                 )

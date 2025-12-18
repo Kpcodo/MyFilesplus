@@ -1,7 +1,6 @@
 package com.example.filemanager.ui
 
-import android.content.ContentUris
-import android.provider.MediaStore
+import android.annotation.SuppressLint
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -11,15 +10,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderZip
-import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.res.stringResource
 import com.example.filemanager.R
 import androidx.compose.material3.*
@@ -33,11 +30,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
-import com.example.filemanager.data.FileModel
 import com.example.filemanager.data.FileType
 import com.example.filemanager.data.FileUtils
 import com.example.filemanager.data.TrashedFile
 
+private enum class DialogType {
+    NONE,
+    RESTORE_SELECTED,
+    DELETE_SELECTED,
+    RESTORE_ALL,
+    EMPTY_TRASH
+}
+
+@SuppressLint("UnusedContent")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrashScreen(
@@ -48,46 +53,64 @@ fun TrashScreen(
     val trashedFiles by viewModel.trashedFiles.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-
     var selectionMode by remember { mutableStateOf(false) }
     var selectedItems by remember { mutableStateOf(setOf<TrashedFile>()) }
-    var showRestoreConfirmation by remember { mutableStateOf(false) }
-    var showDeleteConfirmation by remember { mutableStateOf(false) }
-
+    var shownDialog by remember { mutableStateOf(DialogType.NONE) }
 
     LaunchedEffect(Unit) {
         viewModel.loadTrashedFiles()
     }
-    
-    var showRestoreAllConfirmation by remember { mutableStateOf(false) }
-    var showEmptyTrashConfirmation by remember { mutableStateOf(false) }
 
-    if (showRestoreConfirmation) {
-        ConfirmationDialog(
-            title = stringResource(R.string.restore_files_title),
-            message = stringResource(R.string.restore_files_message),
-            onConfirm = {
-                selectedItems.forEach { viewModel.restoreFile(it) }
-                selectionMode = false
-                selectedItems = setOf()
-                showRestoreConfirmation = false
-            },
-            onDismiss = { showRestoreConfirmation = false }
-        )
-    }
-
-    if (showDeleteConfirmation) {
-        ConfirmationDialog(
-            title = stringResource(R.string.delete_permanently_title),
-            message = stringResource(R.string.delete_permanently_message),
-            onConfirm = {
-                selectedItems.forEach { viewModel.deleteFilePermanently(it) }
-                selectionMode = false
-                selectedItems = setOf()
-                showDeleteConfirmation = false
-            },
-            onDismiss = { showDeleteConfirmation = false }
-        )
+    when (shownDialog) {
+        DialogType.RESTORE_SELECTED -> {
+            ConfirmationDialog(
+                title = stringResource(R.string.restore_files_title),
+                message = stringResource(R.string.restore_files_message),
+                onConfirm = {
+                    selectedItems.forEach { viewModel.restoreFile(it) }
+                    selectionMode = false
+                    selectedItems = setOf()
+                    shownDialog = DialogType.NONE
+                },
+                onDismiss = { shownDialog = DialogType.NONE }
+            )
+        }
+        DialogType.DELETE_SELECTED -> {
+            ConfirmationDialog(
+                title = stringResource(R.string.delete_permanently_title),
+                message = stringResource(R.string.delete_permanently_message),
+                onConfirm = {
+                    selectedItems.forEach { viewModel.deleteFilePermanently(it) }
+                    selectionMode = false
+                    selectedItems = setOf()
+                    shownDialog = DialogType.NONE
+                },
+                onDismiss = { shownDialog = DialogType.NONE }
+            )
+        }
+        DialogType.RESTORE_ALL -> {
+            ConfirmationDialog(
+                title = stringResource(R.string.restore_all_title),
+                message = stringResource(R.string.restore_all_message),
+                onConfirm = {
+                    viewModel.restoreAllFiles()
+                    shownDialog = DialogType.NONE
+                },
+                onDismiss = { shownDialog = DialogType.NONE }
+            )
+        }
+        DialogType.EMPTY_TRASH -> {
+            ConfirmationDialog(
+                title = stringResource(R.string.empty_trash_title),
+                message = stringResource(R.string.empty_trash_message),
+                onConfirm = {
+                    viewModel.emptyTrash()
+                    shownDialog = DialogType.NONE
+                },
+                onDismiss = { shownDialog = DialogType.NONE }
+            )
+        }
+        DialogType.NONE -> { /* Do nothing */ }
     }
 
     Scaffold(
@@ -99,8 +122,8 @@ fun TrashScreen(
                         selectionMode = false
                         selectedItems = setOf()
                     },
-                    onRestore = { showRestoreConfirmation = true },
-                    onDeleteForever = { showDeleteConfirmation = true }
+                    onRestore = { shownDialog = DialogType.RESTORE_SELECTED },
+                    onDeleteForever = { shownDialog = DialogType.DELETE_SELECTED }
                 )
             } else if (showTopBar) {
                 TrashTopAppBar(
@@ -110,44 +133,20 @@ fun TrashScreen(
         }
 
     ) { padding ->
-        if (showRestoreAllConfirmation) {
-            ConfirmationDialog(
-                title = stringResource(R.string.restore_all_title),
-                message = stringResource(R.string.restore_all_message),
-                onConfirm = {
-                    viewModel.restoreAllFiles()
-                    showRestoreAllConfirmation = false
-                },
-                onDismiss = { showRestoreAllConfirmation = false }
-            )
-        }
-
-        if (showEmptyTrashConfirmation) {
-            ConfirmationDialog(
-                title = stringResource(R.string.empty_trash_title),
-                message = stringResource(R.string.empty_trash_message),
-                onConfirm = {
-                    viewModel.emptyTrash()
-                    showEmptyTrashConfirmation = false
-                },
-                onDismiss = { showEmptyTrashConfirmation = false }
-            )
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
             // Persistent buttons row
-             Row(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 OutlinedButton(
-                    onClick = { showRestoreAllConfirmation = true },
+                    onClick = { shownDialog = DialogType.RESTORE_ALL },
                     modifier = Modifier.weight(1f).padding(end = 4.dp)
                 ) {
                     Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -155,7 +154,7 @@ fun TrashScreen(
                     Text(stringResource(R.string.restore_all))
                 }
                 OutlinedButton(
-                    onClick = { showEmptyTrashConfirmation = true },
+                    onClick = { shownDialog = DialogType.EMPTY_TRASH },
                     modifier = Modifier.weight(1f).padding(start = 4.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -313,7 +312,7 @@ fun TrashedItem(
                     FileType.AUDIO -> Icons.Default.MusicNote
                     FileType.ARCHIVE -> Icons.Default.FolderZip
                     FileType.DOCUMENT -> Icons.Default.Description
-                    else -> Icons.Default.InsertDriveFile
+                    else -> Icons.AutoMirrored.Filled.InsertDriveFile
                 }
                 Icon(icon, contentDescription = file.name, tint = MaterialTheme.colorScheme.primary)
             }

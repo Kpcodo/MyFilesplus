@@ -176,6 +176,7 @@ fun FileBrowserScreen(
                             "copy" -> viewModel.addToClipboard(file, ClipboardOperation.COPY)
                             "rename" -> { fileToRename = file }
                             "delete" -> viewModel.deleteFile(file.path) { viewModel.loadFiles(path) }
+                            "extract" -> viewModel.extractFile(file) { viewModel.loadFiles(path) }
                             "info" -> {}
                             "share" -> {
                                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", File(file.path))
@@ -310,6 +311,7 @@ fun FileListItem(
                 onCopy = { showMenu = false; onMenuAction("copy") },
                 onRename = { showMenu = false; onMenuAction("rename") },
                 onDelete = { showMenu = false; onMenuAction("delete") },
+                onExtract = if (file.type == FileType.ARCHIVE) { { showMenu = false; onMenuAction("extract") } } else null,
                 onInfo = { showMenu = false; onMenuAction("info") },
                 onShare = { showMenu = false; onMenuAction("share") }
             )
@@ -398,6 +400,7 @@ fun FileGridItem(
                             onCopy = { showMenu = false; onMenuAction("copy") },
                             onRename = { showMenu = false; onMenuAction("rename") },
                             onDelete = { showMenu = false; onMenuAction("delete") },
+                            onExtract = if (file.type == FileType.ARCHIVE) { { showMenu = false; onMenuAction("extract") } } else null,
                             onInfo = { showMenu = false; onMenuAction("info") },
                             onShare = { showMenu = false; onMenuAction("share") }
                         )
@@ -632,6 +635,7 @@ fun FileItemMenu(
     onCopy: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onExtract: (() -> Unit)? = null,
     onInfo: () -> Unit,
     onShare: () -> Unit
 ) {
@@ -642,6 +646,9 @@ fun FileItemMenu(
         DropdownMenuItem(text = { Text("Move") }, onClick = onMove)
         DropdownMenuItem(text = { Text("Copy") }, onClick = onCopy)
         DropdownMenuItem(text = { Text("Rename") }, onClick = onRename)
+        if (onExtract != null) {
+            DropdownMenuItem(text = { Text("Extract") }, onClick = onExtract)
+        }
         DropdownMenuItem(text = { Text("Share") }, onClick = onShare)
         DropdownMenuItem(text = { Text("Delete") }, onClick = onDelete)
         DropdownMenuItem(text = { Text("Info") }, onClick = onInfo)

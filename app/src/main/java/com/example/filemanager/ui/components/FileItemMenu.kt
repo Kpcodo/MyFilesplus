@@ -21,6 +21,7 @@ fun FileItemMenu(
     onCopy: () -> Unit,
     onRename: () -> Unit,
     onDelete: (() -> Unit)? = null,
+    onExtract: (() -> Unit)? = null,
     onInfo: () -> Unit,
     onShare: () -> Unit
 ) {
@@ -43,6 +44,13 @@ fun FileItemMenu(
             onClick = onRename,
             leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
         )
+        if (onExtract != null) {
+            DropdownMenuItem(
+                text = { Text("Extract") },
+                onClick = onExtract,
+                leadingIcon = { Icon(Icons.Default.DriveFileMove, contentDescription = null) }
+            )
+        }
         if (onDelete != null) {
             DropdownMenuItem(
                 text = { Text("Delete") },

@@ -347,46 +347,10 @@ class FileRepository(private val context: Context) {
         }
     }
 
-    suspend fun extractZip(sourcePath: String, destinationPath: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val inputStream = FileInputStream(sourcePath)
-            val zipInputStream = ZipInputStream(BufferedInputStream(inputStream))
-            var entry: ZipEntry?
+    private val archiveManager = ArchiveManager()
 
-            val destDir = File(destinationPath)
-            if (!destDir.exists()) destDir.mkdirs()
-
-            while (zipInputStream.nextEntry.also { entry = it } != null) {
-                val currentEntry = entry ?: continue
-                val file = File(destDir, currentEntry.name)
-
-                val canonicalPath = file.canonicalPath
-                if (!canonicalPath.startsWith(destDir.canonicalPath + File.separator)) {
-                    throw SecurityException("Zip Path Traversal Attempt: " + currentEntry.name)
-                }
-
-                val dir = if (currentEntry.isDirectory) file else file.parentFile
-                if (dir != null && !dir.isDirectory && !dir.mkdirs()) {
-                    throw java.io.FileNotFoundException("Failed to ensure directory: " + dir.absolutePath)
-                }
-                if (currentEntry.isDirectory) continue
-
-                val fileOutputStream = FileOutputStream(file)
-                val bufferedOutputStream = BufferedOutputStream(fileOutputStream)
-                val buffer = ByteArray(1024)
-                var count: Int
-                while (zipInputStream.read(buffer).also { count = it } != -1) {
-                    bufferedOutputStream.write(buffer, 0, count)
-                }
-                bufferedOutputStream.close()
-                fileOutputStream.close()
-            }
-            zipInputStream.close()
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
+    suspend fun extractArchive(sourcePath: String, destinationPath: String): Boolean = withContext(Dispatchers.IO) {
+        archiveManager.extractArchive(File(sourcePath), File(destinationPath))
     }
 
     suspend fun getStorageInfo(): StorageInfo = withContext(Dispatchers.IO) {
