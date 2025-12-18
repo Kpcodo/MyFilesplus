@@ -58,6 +58,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -106,6 +109,7 @@ fun FileBrowserScreen(
 
     var selectionMode by remember { mutableStateOf(false) }
     var selectedItems by remember { mutableStateOf(setOf<String>()) }
+    var fileToRename by remember { mutableStateOf<FileModel?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -170,7 +174,7 @@ fun FileBrowserScreen(
                         when (action) {
                             "move" -> viewModel.addToClipboard(file, ClipboardOperation.MOVE)
                             "copy" -> viewModel.addToClipboard(file, ClipboardOperation.COPY)
-                            "rename" -> {}
+                            "rename" -> { fileToRename = file }
                             "delete" -> viewModel.deleteFile(file.path) { viewModel.loadFiles(path) }
                             "info" -> {}
                             "share" -> {
@@ -238,6 +242,21 @@ fun FileBrowserScreen(
                 }
             }
         }
+    }
+        }
+    }
+
+    if (fileToRename != null) {
+        RenameDialog(
+            file = fileToRename!!,
+            onDismiss = { fileToRename = null },
+            onConfirm = { newName ->
+                viewModel.renameFile(fileToRename!!, newName) {
+                    viewModel.loadFiles(path)
+                }
+                fileToRename = null
+            }
+        )
     }
 }
 
@@ -628,4 +647,38 @@ fun FileItemMenu(
         DropdownMenuItem(text = { Text("Delete") }, onClick = onDelete)
         DropdownMenuItem(text = { Text("Info") }, onClick = onInfo)
     }
+}
+
+
+@Composable
+fun RenameDialog(
+    file: FileModel,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var newName by remember { mutableStateOf(file.name) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename") },
+        text = {
+            TextField(
+                value = newName,
+                onValueChange = { newName = it },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(newName) },
+                enabled = newName.isNotEmpty() && newName != file.name
+            ) {
+                Text("Rename")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
