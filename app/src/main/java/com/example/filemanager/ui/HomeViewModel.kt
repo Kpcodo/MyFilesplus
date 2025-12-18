@@ -430,18 +430,7 @@ class HomeViewModel(
         }
     }
 
-    fun renameFile(file: FileModel, newName: String, onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            if (repository.renameFile(file.path, newName)) {
-                onSuccess()
-                // Refresh specific lists if needed, or just the current path
-                // For now, simpler to just let the caller trigger a reload or doing it here if we tracked current path better in VM
-                showMessage("File renamed successfully")
-            } else {
-                showMessage("Failed to rename file")
-            }
-        }
-    }
+
 
     fun undoDelete(originalPath: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
