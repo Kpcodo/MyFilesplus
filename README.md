@@ -1,4 +1,7 @@
-# MyFiles+
+<div align="center">
+  <img src="app/src/main/res/drawable/ic_myfiles_plus.png" width="128" />
+  <h1>MyFiles+</h1>
+</div>
 
 A modern, fast, and lightweight File Manager for Android, built with **Jetpack Compose** and **Material You (Material 3)**.
 
