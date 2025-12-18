@@ -20,7 +20,7 @@ fun FileItemMenu(
     onMove: () -> Unit,
     onCopy: () -> Unit,
     onRename: () -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (() -> Unit)? = null,
     onInfo: () -> Unit,
     onShare: () -> Unit
 ) {
@@ -43,11 +43,13 @@ fun FileItemMenu(
             onClick = onRename,
             leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
         )
-        DropdownMenuItem(
-            text = { Text("Delete") },
-            onClick = onDelete,
-            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
-        )
+        if (onDelete != null) {
+            DropdownMenuItem(
+                text = { Text("Delete") },
+                onClick = onDelete,
+                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
+            )
+        }
         DropdownMenuItem(
             text = { Text("Folder Info") },
             onClick = onInfo,

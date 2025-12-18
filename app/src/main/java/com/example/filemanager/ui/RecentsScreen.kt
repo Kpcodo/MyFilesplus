@@ -187,7 +187,8 @@ fun RecentsScreen(
                                                     selectionMode = false,
                                                     onClick = { onFileClick(file) },
                                                     onLongClick = { /* Optional */ },
-                                                    onMenuAction = { /* Optional */ }
+                                                    onMenuAction = { /* Optional */ },
+                                                    allowDelete = false
                                                 )
                                             }
                                         }

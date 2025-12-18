@@ -260,7 +260,8 @@ fun DetailedFileItem(
     selectionMode: Boolean, 
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onMenuAction: (String) -> Unit
+    onMenuAction: (String) -> Unit,
+    allowDelete: Boolean = true
 ) {
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     var showMenu by remember { mutableStateOf(false) }
@@ -357,7 +358,7 @@ fun DetailedFileItem(
                     onMove = { showMenu = false; onMenuAction("move") },
                     onCopy = { showMenu = false; onMenuAction("copy") },
                     onRename = { showMenu = false; onMenuAction("rename") },
-                    onDelete = { showMenu = false; onMenuAction("delete") },
+                    onDelete = if (allowDelete) { { showMenu = false; onMenuAction("delete") } } else null,
                     onInfo = { showMenu = false; onMenuAction("info") },
                     onShare = { showMenu = false; onMenuAction("share") }
                 )
