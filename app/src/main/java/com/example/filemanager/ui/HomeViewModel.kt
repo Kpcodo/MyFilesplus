@@ -10,7 +10,6 @@ import com.example.filemanager.data.FileType
 import com.example.filemanager.data.SettingsRepository
 import com.example.filemanager.data.StorageInfo
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,7 +23,7 @@ import java.io.File
 
 class HomeViewModel(
     private val repository: FileRepository,
-    private val settingsRepository: SettingsRepository
+    settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val _storageInfo = MutableStateFlow<StorageInfo?>(null)
@@ -41,7 +40,7 @@ class HomeViewModel(
     private val _ghostFiles = MutableStateFlow<List<File>>(emptyList())
     val ghostFiles: StateFlow<List<File>> = _ghostFiles.asStateFlow()
 
-    private val _forecastText = MutableStateFlow<String>("...")
+    private val _forecastText = MutableStateFlow("...")
     val forecastText: StateFlow<String> = _forecastText.asStateFlow()
 
     private val _dailyUsageRate = MutableStateFlow<Long>(0)
@@ -353,11 +352,10 @@ class HomeViewModel(
     private val _trashSize = MutableStateFlow<Long>(0)
     val trashSize: StateFlow<Long> = _trashSize.asStateFlow()
 
-    private val _emptyFoldersCount = MutableStateFlow<Int>(0)
+    private val _emptyFoldersCount = MutableStateFlow(0)
     val emptyFoldersCount: StateFlow<Int> = _emptyFoldersCount.asStateFlow()
 
-    private val _largeFilesCount = MutableStateFlow<Int>(0)
-    val largeFilesCount: StateFlow<Int> = _largeFilesCount.asStateFlow()
+    private val _largeFilesCount = MutableStateFlow(0)
 
     fun loadDashboardData() {
         viewModelScope.launch {
@@ -460,6 +458,4 @@ class HomeViewModelFactory(private val repository: FileRepository, private val s
     }
 }
 
-enum class SortType { NAME, SIZE, DATE }
-enum class SortOrder { ASCENDING, DESCENDING }
-enum class ViewType { LIST, GRID, COMPACT, LARGE_GRID }
+

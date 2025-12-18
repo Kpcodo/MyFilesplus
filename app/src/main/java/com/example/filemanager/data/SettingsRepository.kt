@@ -41,6 +41,22 @@ class SettingsRepository(private val context: Context) {
     val viewMode: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[VIEW_MODE] ?: 0 }
 
+
+    val themeMode: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[THEME_MODE] ?: 0 }
+
+    val accentColor: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[ACCENT_COLOR] ?: 0xFF6650a4.toInt() }
+
+    val showHiddenFiles: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[SHOW_HIDDEN_FILES] ?: false }
+
+    val showFileExtensions: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[SHOW_FILE_EXTENSIONS] ?: true }
+
+    val searchBlurEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[SEARCH_BLUR_ENABLED] ?: true }
+
     val iconSize: Flow<Float> = context.dataStore.data
         .map { preferences -> preferences[ICON_SIZE] ?: 1.0f }
 

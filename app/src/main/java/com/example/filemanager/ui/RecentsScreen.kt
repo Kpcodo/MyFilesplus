@@ -177,15 +177,17 @@ fun RecentsScreen(
                                         enableDismissFromStartToEnd = swipeDeleteDirection == 1,
                                         enableDismissFromEndToStart = swipeDeleteDirection == 0,
                                         content = {
-                                            Box(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                                            Box(modifier = Modifier
+                                                .background(MaterialTheme.colorScheme.surface)
+                                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                            ) {
                                                 DetailedFileItem(
                                                     file = file,
                                                     isSelected = false,
                                                     selectionMode = false,
                                                     onClick = { onFileClick(file) },
                                                     onLongClick = { /* Optional */ },
-                                                    onMenuAction = { /* Optional */ },
-                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                                    onMenuAction = { /* Optional */ }
                                                 )
                                             }
                                         }
