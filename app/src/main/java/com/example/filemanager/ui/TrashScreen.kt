@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.res.stringResource
+import com.example.filemanager.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,8 +61,8 @@ fun TrashScreen(
 
     if (showRestoreConfirmation) {
         ConfirmationDialog(
-            title = "Restore Files",
-            message = "Are you sure you want to restore the selected files?",
+            title = stringResource(R.string.restore_files_title),
+            message = stringResource(R.string.restore_files_message),
             onConfirm = {
                 selectedItems.forEach { viewModel.restoreFile(it) }
                 selectionMode = false
@@ -73,8 +75,8 @@ fun TrashScreen(
 
     if (showDeleteConfirmation) {
         ConfirmationDialog(
-            title = "Delete Files Permanently",
-            message = "Are you sure you want to permanently delete the selected files? This action cannot be undone.",
+            title = stringResource(R.string.delete_permanently_title),
+            message = stringResource(R.string.delete_permanently_message),
             onConfirm = {
                 selectedItems.forEach { viewModel.deleteFilePermanently(it) }
                 selectionMode = false
@@ -118,7 +120,7 @@ fun TrashScreen(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (trashedFiles.isEmpty()) {
                 Text(
-                    "Trash is empty",
+                    stringResource(R.string.trash_empty_message),
                     modifier = Modifier.align(Alignment.Center),
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -162,12 +164,12 @@ fun ConfirmationDialog(
         text = { Text(message) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Confirm")
+                Text(stringResource(R.string.confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )
@@ -184,19 +186,19 @@ fun TrashTopAppBar(
     var showMenu by remember { mutableStateOf(false) }
 
     TopAppBar(
-        title = { Text("Bin") },
+        title = { Text(stringResource(R.string.trash_screen_title)) },
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_desc))
             }
         },
         actions = {
             IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More Options")
+                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options_desc))
             }
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
-                    text = { Text("Empty Trash") },
+                    text = { Text(stringResource(R.string.action_empty_trash)) },
                     onClick = {
                         onEmptyTrash()
                         showMenu = false
@@ -216,18 +218,18 @@ fun TrashSelectionTopAppBar(
     onDeleteForever: () -> Unit
 ) {
     TopAppBar(
-        title = { Text("$selectedItemCount selected") },
+        title = { Text(stringResource(R.string.selected_count, selectedItemCount)) },
         navigationIcon = {
             IconButton(onClick = onClearSelection) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Clear Selection")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.clear_selection_desc))
             }
         },
         actions = {
             IconButton(onClick = onRestore) {
-                Icon(Icons.Default.Restore, contentDescription = "Restore")
+                Icon(Icons.Default.Restore, contentDescription = stringResource(R.string.action_restore))
             }
             IconButton(onClick = onDeleteForever) {
-                Icon(Icons.Default.DeleteForever, contentDescription = "Delete Forever")
+                Icon(Icons.Default.DeleteForever, contentDescription = stringResource(R.string.action_delete_forever))
             }
         }
     )
@@ -286,12 +288,12 @@ fun TrashedItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
             Text(
-                "Original: ${file.originalPath.substringBeforeLast("/")}",
+                stringResource(R.string.original_path_label, file.originalPath.substringBeforeLast("/")),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1
             )
             Text(
-                "Deleted: ${FileUtils.formatDate(file.dateDeleted)}",
+                stringResource(R.string.deleted_date_label, FileUtils.formatDate(file.dateDeleted)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

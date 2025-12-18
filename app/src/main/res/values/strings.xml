@@ -1,3 +1,20 @@
 <resources>
     <string name="app_name">"MyFiles+"</string>
+    <string name="trash_screen_title">Bin</string>
+    <string name="trash_empty_message">Trash is empty</string>
+    <string name="restore_files_title">Restore Files</string>
+    <string name="restore_files_message">Are you sure you want to restore the selected files?</string>
+    <string name="delete_permanently_title">Delete Files Permanently</string>
+    <string name="delete_permanently_message">Are you sure you want to permanently delete the selected files? This action cannot be undone.</string>
+    <string name="action_restore">Restore</string>
+    <string name="action_delete_forever">Delete Forever</string>
+    <string name="action_empty_trash">Empty Trash</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="selected_count">%d selected</string>
+    <string name="original_path_label">Original: %1$s</string>
+    <string name="deleted_date_label">Deleted: %1$s</string>
+    <string name="back_desc">Back</string>
+    <string name="more_options_desc">More Options</string>
+    <string name="clear_selection_desc">Clear Selection</string>
 </resources>
