@@ -1,33 +1,48 @@
-# Security Policy
+# Security Policy for MyFiles+
 
-## Supported Versions
+Thank you for your interest in the security of **MyFiles+**. As a file management application, we treat user data privacy and local storage security with the utmost importance.
 
-Use this section to tell people about which versions of your project are currently being supported with security updates.
+## 🛡️ Data Privacy & Architecture
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+**MyFiles+ is a local-only application.**
 
-## Reporting a Vulnerability
+*   **No Cloud Uploads**: The application does not upload your files, metadata, or usage statistics to any external servers or cloud storage. All file operations (move, copy, delete, rename) are performed locally on your device.
+*   **No Tracking**: We do not include third-party analytics or tracking SDKs that jeopardize user privacy.
+*   **Permissions**:
+    *   `MANAGE_EXTERNAL_STORAGE`: Used strictly for the core functionality of managing files across your device storage.
+    *   `INTERNET`: Not requested/used for data exfiltration. (Note: Only used if future updates require fetching update info, but currently the app is offline-first).
 
-We take the security of **MyFiles+** seriously. If you find a vulnerability, please report it to us immediately.
+## ✅ Supported Versions
+
+We accept security reports for the latest stable release and the current beta branch.
+
+| Version | Branch | Status |
+| :--- | :--- | :--- |
+| 1.x.x | `master` | :white_check_mark: Supported |
+| Beta | `beta` | :white_check_mark: Supported |
+| < 1.0 | n/a | :x: EOL |
+
+## 🐛 Reporting a Vulnerability
+
+If you discover a security vulnerability (e.g., unintended file exposure, permission bypass, or path traversal issues), please report it responsibly.
 
 ### How to Report
+Please **do not** create public GitHub issues for security vulnerabilities.
 
-Please do **NOT** report security vulnerabilities via public GitHub issues.
+1.  Draft a report with:
+    *   Description of the vulnerability.
+    *   Steps to reproduce.
+    *   Affected Android versions/Devices.
+2.  Email the maintainers directly at: **security@example.com** (Replace with actual email or contact method).
 
-Instead, please report them via email to: **security@example.com** (Replace with actual email if known, or leave as placeholder).
+### Response Timeline
+*   **Acknowledgement**: 48 hours.
+*   **Assessment**: 5 business days.
+*   **Fix**: As soon as possible, prioritized over feature work.
 
-Please include:
-*   A description of the vulnerability.
-*   Steps to reproduce the issue.
-*   Potential impact.
+## ⚠️ Known Risks outside Scope
+*   **Rooted Devices**: Running MyFiles+ on a rooted device grants it (and other apps) privileges beyond standard Android security models. We cannot guarantee security on compromised/rooted OS environments.
+*   **Physical Access**: As a local app, we rely on Android's device encryption. If an attacker has unlocked physical access to your phone, they can access files via the app.
 
-### Disclosure Policy
-
-*   We will acknowledge your report within 48 hours.
-*   We will investigate the issue and provide an estimated timeline for a fix.
-*   We ask that you do not publicly disclose the vulnerability until we have had a chance to fix it.
-
-Thank you for helping keep MyFiles+ safe!
+---
+*Stay Safe, Stay Local.*
