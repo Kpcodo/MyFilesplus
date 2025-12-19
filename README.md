@@ -29,14 +29,7 @@ A modern, fast, and lightweight File Manager for Android, built with **Jetpack C
 
 ## 📸 Screenshots
 
-<!-- Screenshots -->
-<div align="center">
-  <img src="screenshots/screen_1.png" width="180" />
-  <img src="screenshots/screen_2.png" width="180" />
-  <img src="screenshots/screen_3.png" width="180" />
-  <img src="screenshots/screen_4.png" width="180" />
-  <img src="screenshots/screen_5.png" width="180" />
-</div>
+*(Add screenshots here)*
 
 ## 📦 Setup
 
