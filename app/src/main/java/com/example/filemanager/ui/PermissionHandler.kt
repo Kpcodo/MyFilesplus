@@ -1,6 +1,9 @@
 package com.example.filemanager.ui
 
+
 import android.Manifest
+import android.app.AppOpsManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -9,12 +12,7 @@ import android.os.Environment
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.content.ContextCompat
@@ -22,88 +20,111 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
 /**
- * A reusable Composable for handling storage permissions required by the file manager.
- *
- * This handler abstracts the logic for different Android versions:
- * - For Android 11 (R) and above, it checks for `MANAGE_EXTERNAL_STORAGE`.
- * - For Android 10 (Q) and below, it requests `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE`.
- *
- * @param onPermissionGranted A Composable lambda to be executed when all required permissions are granted.
- * @param onPermissionDenied A Composable lambda to be executed when any permission is denied. It receives
- * a `requestPermission` function that can be called to trigger the permission request flow again.
+ * A reusable Composable for handling permissions required by the file manager.
+ * Checks for:
+ * 1. Storage Permissions (MANAGE_EXTERNAL_STORAGE for A11+, READ/WRITE for A10-)
+ * 2. Usage Stats Permission (for app size metrics)
  */
 @Composable
-fun StoragePermissionHandler(
+fun AppPermissionHandler(
     onPermissionGranted: @Composable () -> Unit,
-    onPermissionDenied: @Composable (requestPermission: () -> Unit) -> Unit
+    onPermissionDenied: @Composable (missingPermission: PermissionType, requestPermission: () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        // Android 11+ (R) and above: MANAGE_EXTERNAL_STORAGE
-        var hasManagerPermission by remember { mutableStateOf(Environment.isExternalStorageManager()) }
-        val lifecycleOwner = LocalLifecycleOwner.current
+    // State for permissions
+    var hasStoragePermission by remember { mutableStateOf(checkStoragePermission(context)) }
+    var hasUsagePermission by remember { mutableStateOf(checkUsageStatsPermission(context)) }
 
-        // Listen for lifecycle RESUME event to re-check permission after returning from settings
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    hasManagerPermission = Environment.isExternalStorageManager()
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
+    // Listen for lifecycle RESUME event to re-check permissions after returning from settings
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasStoragePermission = checkStoragePermission(context)
+                hasUsagePermission = checkUsageStatsPermission(context)
             }
         }
-
-        if (hasManagerPermission) {
-            onPermissionGranted()
-        } else {
-            val requestPermission: () -> Unit = {
-                // Navigate user to the system settings screen for the app
-                try {
-                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                    intent.addCategory("android.intent.category.DEFAULT")
-                    intent.data = Uri.fromParts("package", context.packageName, null)
-                    context.startActivity(intent)
-                } catch (_: Exception) {
-                    // Fallback for devices that may not handle the specific intent
-                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                    context.startActivity(intent)
-                }
-            }
-            onPermissionDenied(requestPermission)
-        }
-    } else {
-        // Android 10 (Q) and below: READ/WRITE_EXTERNAL_STORAGE
-        val permissions = arrayOf(
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
-        )
-
-        var permissionsGranted by remember {
-            mutableStateOf(
-                permissions.all {
-                    ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-                }
-            )
-        }
-
-        val launcher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestMultiplePermissions()
-        ) { permissionResults: Map<String, Boolean> ->
-            // Update state based on whether all permissions were granted
-            permissionsGranted = permissionResults.values.all { it }
-        }
-
-        if (permissionsGranted) {
-            onPermissionGranted()
-        } else {
-            val requestPermission: () -> Unit = {
-                launcher.launch(permissions)
-            }
-            onPermissionDenied(requestPermission)
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
+
+    if (hasStoragePermission && hasUsagePermission) {
+        onPermissionGranted()
+    } else {
+        if (!hasStoragePermission) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Android 11+ Logic for Storage
+                val requestStorage: () -> Unit = {
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                        intent.addCategory("android.intent.category.DEFAULT")
+                        intent.data = Uri.fromParts("package", context.packageName, null)
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                        context.startActivity(intent)
+                    }
+                }
+                onPermissionDenied(PermissionType.STORAGE, requestStorage)
+            } else {
+                // Android 10 Logic for Storage
+                val launcher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestMultiplePermissions()
+                ) { permissionResults ->
+                    hasStoragePermission = permissionResults.values.all { it }
+                }
+                
+                val requestStorage: () -> Unit = {
+                    launcher.launch(arrayOf(
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ))
+                }
+                onPermissionDenied(PermissionType.STORAGE, requestStorage)
+            }
+        } else if (!hasUsagePermission) {
+             val requestUsage: () -> Unit = {
+                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                 context.startActivity(intent)
+             }
+             onPermissionDenied(PermissionType.USAGE_STATS, requestUsage)
+        }
+    }
+}
+
+enum class PermissionType {
+    STORAGE,
+    USAGE_STATS
+}
+
+private fun checkStoragePermission(context: Context): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Environment.isExternalStorageManager()
+    } else {
+        val read = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)
+        val write = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        read == PackageManager.PERMISSION_GRANTED && write == PackageManager.PERMISSION_GRANTED
+    }
+}
+
+private fun checkUsageStatsPermission(context: Context): Boolean {
+    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+    val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        appOps.unsafeCheckOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            android.os.Process.myUid(),
+            context.packageName
+        )
+    } else {
+        @Suppress("DEPRECATION")
+        appOps.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            android.os.Process.myUid(),
+            context.packageName
+        )
+    }
+    return mode == AppOpsManager.MODE_ALLOWED
 }

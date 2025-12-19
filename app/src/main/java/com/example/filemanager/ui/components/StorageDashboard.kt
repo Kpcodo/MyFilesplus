@@ -36,8 +36,6 @@ fun StorageDashboard(
     cacheSize: Long, // Added parameter
     emptyFoldersCount: Int,
     forecastText: String,
-    hasUsageAccess: Boolean = true,
-    onRequestUsageAccess: () -> Unit,
     onFreeUpClick: () -> Unit,
     onGhostFilesClick: () -> Unit,
     onForecastClick: () -> Unit
@@ -59,12 +57,7 @@ fun StorageDashboard(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            if (!hasUsageAccess) {
-                PermissionRequestCard(
-                    onClick = onRequestUsageAccess,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
-            }
+
 
             // Metrics Row (New Design)
             Row(
@@ -307,14 +300,24 @@ fun SmartToolCard(
                     contentAlignment = Alignment.Center
                 ) {
                     if (icon != null) {
-                         Icon(painter = icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
+                        Icon(
+                            painter = icon,
+                            contentDescription = null,
+                            tint = iconColor,
+                            modifier = Modifier.size(24.dp)
+                        )
                     } else if (iconVector != null) {
-                         Icon(imageVector = iconVector, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
+                        Icon(
+                            imageVector = iconVector,
+                            contentDescription = null,
+                            tint = iconColor,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
@@ -339,44 +342,7 @@ fun SmartToolCard(
             }
         }
     }
-    }
 }
 
-@Composable
-fun PermissionRequestCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
-        ),
-        shape = RoundedCornerShape(16.dp),
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = "Grant Usage Access",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Required for accurate app size metrics",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-    }
-}
+
+

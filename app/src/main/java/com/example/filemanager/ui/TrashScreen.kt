@@ -4,7 +4,16 @@ import android.annotation.SuppressLint
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,8 +59,8 @@ fun TrashScreen(
     showTopBar: Boolean = true,
     onBack: () -> Unit
 ) {
-    val trashedFiles by viewModel.trashedFiles.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val trashedFilesState by viewModel.trashedFiles.collectAsState()
+    val loadingState by viewModel.isLoading.collectAsState()
 
     var selectionMode by remember { mutableStateOf(false) }
     var selectedItems by remember { mutableStateOf(setOf<TrashedFile>()) }
@@ -169,9 +178,9 @@ fun TrashScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                if (isLoading) {
+                if (loadingState) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                } else if (trashedFiles.isEmpty()) {
+                } else if (trashedFilesState.isEmpty()) {
                     Text(
                         stringResource(R.string.trash_empty_message),
                         modifier = Modifier.align(Alignment.Center),
@@ -179,7 +188,7 @@ fun TrashScreen(
                     )
                 } else {
                     LazyColumn {
-                        items(trashedFiles, key = { it.id }) { file ->
+                        items(trashedFilesState, key = { it.id }) { file ->
                             TrashedItem(
                                 file = file,
                                 isSelected = file in selectedItems,

@@ -74,7 +74,8 @@ import com.example.filemanager.ui.RecentsScreen
 import com.example.filemanager.ui.SettingsScreen
 import com.example.filemanager.ui.SettingsViewModel
 import com.example.filemanager.ui.SettingsViewModelFactory
-import com.example.filemanager.ui.StoragePermissionHandler
+import com.example.filemanager.ui.AppPermissionHandler
+import com.example.filemanager.ui.PermissionType
 import com.example.filemanager.ui.theme.FileManagerTheme
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -116,13 +117,13 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = animatedBackgroundColor
                 ) {
-                    StoragePermissionHandler(
+                    AppPermissionHandler(
                         onPermissionGranted = {
                             val viewModel: HomeViewModel = viewModel(factory = viewModelFactory)
                             MainScreen(viewModel, settingsViewModel)
                         },
-                        onPermissionDenied = { requestPermission ->
-                            PermissionDeniedScreen(requestPermission)
+                        onPermissionDenied = { missingPermission, requestPermission ->
+                            PermissionDeniedScreen(missingPermission, requestPermission)
                         }
                     )
                 }
@@ -132,7 +133,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PermissionDeniedScreen(onRequestPermission: () -> Unit) {
+fun PermissionDeniedScreen(missingPermission: PermissionType, onRequestPermission: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -146,14 +147,24 @@ fun PermissionDeniedScreen(onRequestPermission: () -> Unit) {
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))
+            
+            val message = when (missingPermission) {
+                PermissionType.STORAGE -> "To manage your files, this app needs access to your device's storage. Please grant the necessary permissions."
+                PermissionType.USAGE_STATS -> "To analyze storage usage (app sizes, cache), this app needs Usage Access permission."
+            }
+            
             Text(
-                text = "To manage your files, this app needs access to your device's storage. Please grant the necessary permissions.",
+                text = message,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = onRequestPermission) {
-                Text("Grant Permission")
+                val buttonText = when (missingPermission) {
+                    PermissionType.STORAGE -> "Grant Storage Permission"
+                    PermissionType.USAGE_STATS -> "Grant Usage Access"
+                }
+                Text(buttonText)
             }
         }
     }

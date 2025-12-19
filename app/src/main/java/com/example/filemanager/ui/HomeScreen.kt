@@ -128,8 +128,7 @@ fun HomeScreen(
                         cacheSize = cacheSize,
                         emptyFoldersCount = emptyFoldersCount,
                         forecastText = forecastText,
-                        hasUsageAccess = viewModel.hasUsageAccess.collectAsState().value,
-                        onRequestUsageAccess = { viewModel.requestUsageAccess() },
+
                         onFreeUpClick = {
                             if (cacheSize > 0) {
                                 viewModel.cleanTemporaryFiles()
@@ -346,7 +345,7 @@ fun AllStorageSection(
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             val internalInfo = if (storageInfo != null) {
-                "${'$'}{FileUtils.formatSize(storageInfo.usedBytes)} / ${'$'}{FileUtils.formatSize(storageInfo.totalBytes)}"
+                "${FileUtils.formatSize(storageInfo.usedBytes)}"
             } else {
                 "..."
             }
