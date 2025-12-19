@@ -7,6 +7,8 @@ data class StorageInfo(
     val imageBytes: Long,
     val videoBytes: Long,
     val audioBytes: Long,
-    val documentBytes: Long, // Add this line
-    val otherBytes: Long // usedBytes - (image + video + audio)
+    val documentBytes: Long,
+    val appBytes: Long,
+    val archiveBytes: Long,
+    val otherBytes: Long // usedBytes - (image + video + audio + docs + apps)
 )

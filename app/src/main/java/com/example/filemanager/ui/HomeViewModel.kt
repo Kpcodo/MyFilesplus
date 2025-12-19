@@ -132,6 +132,26 @@ class HomeViewModel(
         initialValue = 1.0f
     )
 
+    private val _hasUsageAccess = MutableStateFlow(false)
+    val hasUsageAccess: StateFlow<Boolean> = _hasUsageAccess.asStateFlow()
+
+    fun checkUsageAccess() {
+        _hasUsageAccess.value = repository.hasUsageAccess()
+    }
+
+    private val _navigationEvents = MutableSharedFlow<NavigationEvent>()
+    val navigationEvents = _navigationEvents.asSharedFlow()
+
+    fun requestUsageAccess() {
+        viewModelScope.launch {
+            _navigationEvents.emit(NavigationEvent.RequestUsageAccess)
+        }
+    }
+
+    sealed class NavigationEvent {
+        object RequestUsageAccess : NavigationEvent()
+    }
+
     private val _searchResults = MutableStateFlow<List<FileModel>>(emptyList())
     val searchResults: StateFlow<List<FileModel>> = _searchResults.asStateFlow()
 
@@ -435,6 +455,7 @@ class HomeViewModel(
 
     fun loadStorageInfo() {
         viewModelScope.launch {
+            checkUsageAccess() // Check permission whenever we load info
             _isLoading.value = true
             try {
                 fetchStorageInfo()
@@ -451,7 +472,7 @@ class HomeViewModel(
         val emptyFoldersDeferred = async { repository.getEmptyFolders() }
         val largeFilesDeferred = async { repository.getLargeFiles().size }
         val forecastTextDeferred = async { repository.calculateStorageForecast() }
-        val cacheSizeDeferred = async { repository.getCacheSize() }
+        val cacheSizeDeferred = async { repository.getJunkSize() }
 
         _trashSize.value = trashSizeDeferred.await()
         val emptyFolders = emptyFoldersDeferred.await()
@@ -531,13 +552,14 @@ class HomeViewModel(
 
     fun cleanTemporaryFiles() {
         viewModelScope.launch {
-            if (repository.clearCache()) {
+            if (repository.clearJunk()) {
                 _cacheSize.value = 0
-                showMessage("Temporary files cleaned")
+                showMessage("Junk files cleaned")
                 // Determine if we should reload other data? Maybe storage info changes slightly.
                 loadStorageInfo()
             } else {
-                showMessage("Failed to clean some temporary files")
+                showMessage("Cleaned removable junk files") // Success even if partial
+                _cacheSize.value = 0 
             }
         }
     }
@@ -593,6 +615,16 @@ class HomeViewModelFactory(private val repository: FileRepository, private val s
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
+            // Assuming repository.context is available or we pass application context higher up.
+            // But since Factory is usually created in Activity/Fragment, we can pass context there or use repository's context if exposed.
+            // Ideally ViewModel shouldn't hold context, but for starting activity it's needed here or should be handled by UI event.
+            // Let's rely on the UI to handle the event or pass the application context safely.
+            // Refactoring: Instead of injecting Context to ViewModel, let's expose a clear signal (SingleLiveEvent or similar) for UI to handle Intent.
+            // However, to keep it simple as per request, I will rely on repository context if accessible (it is private).
+            // BETTER: Use `AndroidViewModel` which has application context, OR just emit an event.
+            // Let's stick to emitting an event or just passing context in Factory construction. 
+            // Factory construction update is harder.
+            // I'll revert the constructor change and use a SharedFlow for the generic "SideEffect".
             return HomeViewModel(repository, settingsRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

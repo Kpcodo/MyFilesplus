@@ -56,10 +56,6 @@ import com.example.filemanager.data.FileUtils
 import com.example.filemanager.data.StorageInfo
 
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import com.example.filemanager.ui.components.LiquidCleaningOverlay
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,17 +75,11 @@ fun HomeScreen(
     val emptyFoldersCount by viewModel.emptyFoldersCount.collectAsState()
     val forecastText by viewModel.forecastText.collectAsState()
 
-    var showRocketAnimation by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadStorageInfo()
-        viewModel.loadDashboardData()
-    }
 
     val isLoading by viewModel.isLoading.collectAsState()
     PullToRefreshBox(
         isRefreshing = isLoading,
-        onRefresh = { 
+        onRefresh = {
             viewModel.refreshHomeData()
         },
         modifier = Modifier.fillMaxSize()
@@ -138,9 +128,10 @@ fun HomeScreen(
                         cacheSize = cacheSize,
                         emptyFoldersCount = emptyFoldersCount,
                         forecastText = forecastText,
-                        onFreeUpClick = { 
+                        hasUsageAccess = viewModel.hasUsageAccess.collectAsState().value,
+                        onRequestUsageAccess = { viewModel.requestUsageAccess() },
+                        onFreeUpClick = {
                             if (cacheSize > 0) {
-                                showRocketAnimation = true
                                 viewModel.cleanTemporaryFiles()
                             }
                         },
@@ -166,12 +157,6 @@ fun HomeScreen(
                 )
             }
         }
-
-        LiquidCleaningOverlay(
-            isVisible = showRocketAnimation,
-            amountToClean = trashSize,
-            onFinished = { showRocketAnimation = false }
-        )
     }
 }
 
@@ -202,6 +187,7 @@ private fun StorageDonutChart(info: StorageInfo) {
     val videoSweep = (info.videoBytes.toFloat() / total) * 360f
     val audioSweep = (info.audioBytes.toFloat() / total) * 360f
     val docsSweep = (info.documentBytes.toFloat() / total) * 360f
+    val appSweep = (info.appBytes.toFloat() / total) * 360f
     val otherSweep = (info.otherBytes.toFloat() / total) * 360f
 
     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(160.dp)) {
@@ -212,31 +198,35 @@ private fun StorageDonutChart(info: StorageInfo) {
             drawCircle(color = backgroundCircleColor, style = Stroke(width = strokeWidth))
 
             var startAngle = -90f
-            
+
             // Images (Blue)
             drawArc(color = Color(0xFF1E88E5), startAngle = startAngle, sweepAngle = -imageSweep, useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Butt))
             startAngle -= imageSweep
-            
+
             // Videos (Red)
             drawArc(color = Color(0xFFE53935), startAngle = startAngle, sweepAngle = -videoSweep, useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Butt))
             startAngle -= videoSweep
-            
+
             // Audio (Purple)
             drawArc(color = Color(0xFF8E24AA), startAngle = startAngle, sweepAngle = -audioSweep, useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Butt))
             startAngle -= audioSweep
-            
+
             // Docs (Yellow)
             drawArc(color = Color(0xFFFBC02D), startAngle = startAngle, sweepAngle = -docsSweep, useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Butt))
             startAngle -= docsSweep
 
-            // Others (Gray)
-            drawArc(color = Color(0xFF757575), startAngle = startAngle, sweepAngle = -otherSweep, useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Butt))
+            // Apps (Green)
+            drawArc(color = Color(0xFF4CAF50), startAngle = startAngle, sweepAngle = -appSweep, useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Butt))
+            startAngle -= appSweep
+
+            // Others (Peach)
+            drawArc(color = Color(0xFFe8b688), startAngle = startAngle, sweepAngle = -otherSweep, useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Butt))
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Used Storage:", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(text = FileUtils.formatSize(info.usedBytes), fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            Text(text = "/ ${FileUtils.formatSize(info.totalBytes)}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = "/ ${'$'}{FileUtils.formatSize(info.totalBytes)}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -258,7 +248,11 @@ fun StorageLegend() {
         Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             LegendItem(color = Color(0xFFFBC02D), text = "Docs")
             Spacer(modifier = Modifier.width(16.dp))
-            LegendItem(color = Color(0xFF757575), text = "Others")
+            LegendItem(color = Color(0xFF4CAF50), text = "Apps")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            LegendItem(color = Color(0xFFe8b688), text = "Others")
         }
     }
 }
@@ -352,7 +346,7 @@ fun AllStorageSection(
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             val internalInfo = if (storageInfo != null) {
-                "${FileUtils.formatSize(storageInfo.usedBytes)} / ${FileUtils.formatSize(storageInfo.totalBytes)}"
+                "${'$'}{FileUtils.formatSize(storageInfo.usedBytes)} / ${'$'}{FileUtils.formatSize(storageInfo.totalBytes)}"
             } else {
                 "..."
             }

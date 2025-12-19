@@ -1,9 +1,7 @@
 package com.example.filemanager.ui
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,12 +14,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,19 +42,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.filemanager.data.FileModel
 import com.example.filemanager.data.FileUtils
 import com.example.filemanager.data.StorageInfo
 
@@ -102,9 +102,9 @@ fun ForecastScreen(
                         PredictionCard(forecastText, estimatedFullDate, dailyUsageBytes, currentStorageInfo)
                     }
 
-                    // 2. Category Breakdown
+                    // 2. File Type Distribution (Redesigned)
                     item {
-                        StorageBreakdownCard(currentStorageInfo)
+                        FileTypeDistributionCard(currentStorageInfo)
                     }
 
                     // 3. Smart Suggestions Entry
@@ -164,7 +164,6 @@ fun PredictionCard(forecastText: String, estimatedDate: String, dailyUsage: Long
             modifier = Modifier.padding(20.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Replaced Icon with Text Label, Graph will be below
                 Text("Storage Projection", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.SemiBold)
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -180,51 +179,43 @@ fun PredictionCard(forecastText: String, estimatedDate: String, dailyUsage: Long
                     val width = size.width
                     val height = size.height
                     
-                    // Usage Percentage (0.0 to 1.0)
                     val currentUsageRatio = (storageInfo.usedBytes.toFloat() / storageInfo.totalBytes.toFloat()).coerceIn(0f, 1f)
                     
-                    // Draw Threshold Line (Total Capacity)
                     drawLine(
                         color = Color.Gray.copy(alpha = 0.5f),
-                        start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                        end = androidx.compose.ui.geometry.Offset(width, 0f),
+                        start = Offset(0f, 0f),
+                        end = Offset(width, 0f),
                         strokeWidth = 2.dp.toPx(),
                         pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                     )
                     
-                    // Draw Projection Curve
-                    // Start: (0, CurrentUsageY)
-                    // End: (Width, 0) -> represents hitting 100% capacity "Future"
-                    
                     val startY = height * (1 - currentUsageRatio)
-                    val endY = 0f // Top of chart (100% full)
+                    val endY = 0f 
                     
                     val path = androidx.compose.ui.graphics.Path().apply {
-                        moveTo(0f, startY + 10f) // Start slightly below for visual
+                        moveTo(0f, startY + 10f) 
                         quadraticBezierTo(
-                            width * 0.5f, startY, // Control point
+                            width * 0.5f, startY, 
                             width, endY
                         )
                     }
                     
                     drawPath(
                         path = path,
-                        color = Color(0xFF2196F3), // Blue projection line
+                        color = Color(0xFF2196F3), 
                         style = androidx.compose.ui.graphics.drawscope.Stroke(
                             width = 3.dp.toPx(),
                             cap = StrokeCap.Round
                         )
                     )
                     
-                    // Draw "Now" point
                     drawCircle(
                         color = Color(0xFF6750a4),
                         radius = 6.dp.toPx(),
-                        center = androidx.compose.ui.geometry.Offset(0f, startY + 10f)
+                        center = Offset(0f, startY + 10f)
                     )
                 }
                 
-                // Labels inside the graph area
                 Text(
                     text = "Now: ${FileUtils.formatSize(storageInfo.usedBytes)}",
                     style = MaterialTheme.typography.labelSmall,
@@ -253,57 +244,245 @@ fun PredictionCard(forecastText: String, estimatedDate: String, dailyUsage: Long
 }
 
 @Composable
-fun StorageBreakdownCard(info: StorageInfo) {
+fun FileTypeDistributionCard(info: StorageInfo) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Storage Breakdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                "FILE TYPE DISTRIBUTION",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Visual Bar
+            // 1. Top Segmented Bar
+            // Colors matching StorageDashboard
+            val appColor = Color(0xFF4CAF50) // Green
+            val videoColor = Color(0xFF4285F4) // Blue
+            val imageColor = Color(0xFF6750a4) // Purple
+            val audioColor = Color(0xFF009688) // Teal
+            val docColor = Color(0xFFFFC107) // Amber
+            val otherColor = Color(0xFFe8b688) // Peach
+            val freeColor = Color(0xFFC8E6C9) // Light Green/Mint for Free space
+
+            val total = info.totalBytes.toFloat().coerceAtLeast(1f)
+            
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                val total = info.totalBytes.toFloat().coerceAtLeast(1f)
-                
-                if (info.imageBytes > 0) Box(Modifier.weight(info.imageBytes / total).fillMaxSize().background(Color(0xFF6750a4))) // Purple
-                if (info.videoBytes > 0) Box(Modifier.weight(info.videoBytes / total).fillMaxSize().background(Color(0xFF4285F4))) // Blue
-                if (info.audioBytes > 0) Box(Modifier.weight(info.audioBytes / total).fillMaxSize().background(Color(0xFF009688))) // Teal
-                if (info.documentBytes > 0) Box(Modifier.weight(info.documentBytes / total).fillMaxSize().background(Color(0xFFFFC107))) // Amber
-                if (info.otherBytes > 0) Box(Modifier.weight(info.otherBytes / total).fillMaxSize().background(Color(0xFFe8b688))) // Peach
-                if (info.freeBytes > 0) Box(Modifier.weight(info.freeBytes / total).fillMaxSize().background(Color.LightGray)) // Free Space
+                if (info.appBytes > 0) Box(Modifier.weight(info.appBytes / total).fillMaxSize().background(appColor))
+                if (info.videoBytes > 0) Box(Modifier.weight(info.videoBytes / total).fillMaxSize().background(videoColor))
+                if (info.imageBytes > 0) Box(Modifier.weight(info.imageBytes / total).fillMaxSize().background(imageColor))
+                if (info.audioBytes > 0) Box(Modifier.weight(info.audioBytes / total).fillMaxSize().background(audioColor))
+                if (info.documentBytes > 0) Box(Modifier.weight(info.documentBytes / total).fillMaxSize().background(docColor))
+                if (info.otherBytes > 0) Box(Modifier.weight(info.otherBytes / total).fillMaxSize().background(otherColor))
+                if (info.freeBytes > 0) Box(Modifier.weight(info.freeBytes / total).fillMaxSize().background(freeColor))
             }
             
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 3. Free Space Card (Moved to top)
+            FreeSpaceCard(freeBytes = info.freeBytes, totalBytes = info.totalBytes, color = Color(0xFF00C853))
+
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Legend
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                BreakdownItem("Images", info.imageBytes, Color(0xFF6750a4))
-                BreakdownItem("Videos", info.videoBytes, Color(0xFF4285F4))
-                BreakdownItem("Audio", info.audioBytes, Color(0xFF009688))
-                BreakdownItem("Docs", info.documentBytes, Color(0xFFFFC107))
-                BreakdownItem("Other", info.otherBytes, Color(0xFFe8b688))
-                BreakdownItem("Free", info.freeBytes, Color.LightGray)
+
+            // 2. Grid of Category Cards
+            val categories = listOf(
+                CategoryDetail(
+                    name = "Apps & Data", 
+                    size = info.appBytes, 
+                    color = appColor, 
+                    icon = Icons.Default.Android
+                ),
+                CategoryDetail(
+                    name = "Videos", 
+                    size = info.videoBytes, 
+                    color = videoColor, 
+                    icon = Icons.Default.VideoFile
+                ),
+                CategoryDetail(
+                    name = "Images", 
+                    size = info.imageBytes, 
+                    color = imageColor, 
+                    icon = Icons.Default.Image
+                ),
+                CategoryDetail(
+                    name = "Documents", 
+                    size = info.documentBytes, 
+                    color = docColor, 
+                    icon = Icons.Default.Description
+                ),
+                CategoryDetail(
+                    name = "Audio", 
+                    size = info.audioBytes, 
+                    color = audioColor, 
+                    icon = Icons.Default.AudioFile
+                ),
+                CategoryDetail(
+                    name = "Others", 
+                    size = info.otherBytes, 
+                    color = otherColor, 
+                    icon = Icons.Default.MoreHoriz
+                )
+            )
+
+            // 2 Columns Grid
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                categories.chunked(2).forEach { rowItems ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        rowItems.forEach { item ->
+                            CategoryDetailCard(
+                                item = item,
+                                totalBytes = info.totalBytes,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (rowItems.size < 2) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
             }
+
+        }
+    }
+}
+
+data class CategoryDetail(
+    val name: String,
+    val size: Long,
+    val color: Color,
+    val icon: ImageVector
+)
+
+@Composable
+fun CategoryDetailCard(
+    item: CategoryDetail,
+    totalBytes: Long,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) // Slightly distinct background
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(item.color.copy(alpha = 0.9f), RoundedCornerShape(8.dp)), // Vibrant icon bg
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = FileUtils.formatSize(item.size),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Linear Progress for this specific category relative to Total (or relative to used? usually total)
+            // Visualizing small ratios might be hard, so maybe relative to *Used* or just visual? 
+            // The image shows small bars. Let's do relative to Total for context.
+            val ratio = if (totalBytes > 0) item.size.toFloat() / totalBytes else 0f
+            LinearProgressIndicator(
+                progress = { ratio },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color = item.color,
+                trackColor = item.color.copy(alpha = 0.2f),
+            )
         }
     }
 }
 
 @Composable
-fun BreakdownItem(label: String, size: Long, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(color))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Text(FileUtils.formatSize(size), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+fun FreeSpaceCard(
+    freeBytes: Long,
+    totalBytes: Long,
+    color: Color
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(color, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Text(
+                text = "Free Space",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            
+            Text(
+                text = "${FileUtils.formatSize(freeBytes)} / ${FileUtils.formatSize(totalBytes)}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        }
     }
 }
-
-

@@ -2,6 +2,7 @@ package com.example.filemanager.data
 
 import android.content.ContentResolver
 import android.content.Context
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
@@ -16,6 +17,11 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+
+import android.app.usage.StorageStatsManager
+import android.app.usage.UsageStatsManager
+import android.os.Process
+import android.os.UserHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -107,41 +113,76 @@ class FileRepository(private val context: Context) {
         emptyFolders
     }
 
-    suspend fun getCacheSize(): Long = withContext(Dispatchers.IO) {
+    suspend fun getJunkSize(): Long = withContext(Dispatchers.IO) {
         var size: Long = 0
         try {
-            val cacheDir = context.cacheDir
-            val codeCacheDir = context.codeCacheDir
-            val externalCacheDir = context.externalCacheDir
-            
-            size += getDirSize(cacheDir)
-            size += getDirSize(codeCacheDir)
-            if (externalCacheDir != null) {
-                size += getDirSize(externalCacheDir)
-            }
+            val root = Environment.getExternalStorageDirectory()
+            val junkFiles = mutableListOf<File>()
+            scanForJunkFiles(root, junkFiles, 0)
+            size = junkFiles.sumOf { it.length() }
         } catch (e: Exception) {
             e.printStackTrace()
         }
         size
     }
 
-    suspend fun clearCache(): Boolean = withContext(Dispatchers.IO) {
+    suspend fun clearJunk(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val cacheDir = context.cacheDir
-            val codeCacheDir = context.codeCacheDir
-            val externalCacheDir = context.externalCacheDir
+            val root = Environment.getExternalStorageDirectory()
+            val junkFiles = mutableListOf<File>()
+            scanForJunkFiles(root, junkFiles, 0)
             
-            deleteDirContents(cacheDir)
-            deleteDirContents(codeCacheDir)
-            if (externalCacheDir != null) {
-                deleteDirContents(externalCacheDir)
+            var allDeleted = true
+            junkFiles.forEach { file ->
+                if (file.exists()) {
+                    // Try simple delete first
+                    if (!file.delete()) {
+                        allDeleted = false
+                    }
+                }
             }
-            true
+            allDeleted
         } catch (e: Exception) {
             e.printStackTrace()
             false
         }
     }
+
+    private fun scanForJunkFiles(directory: File, list: MutableList<File>, depth: Int) {
+        if (depth > 4) return // Limit depth
+        val files = directory.listFiles() ?: return
+
+        for (file in files) {
+            if (file.isDirectory) {
+                // Skip sensitive or system folders
+                if (file.name.equals("Android", ignoreCase = true) || 
+                    file.name.equals("DCIM", ignoreCase = true) ||
+                    file.name.equals("Pictures", ignoreCase = true) ||
+                    file.name.startsWith(".")) {
+                    continue
+                }
+                scanForJunkFiles(file, list, depth + 1)
+            } else {
+                if (isJunkFile(file)) {
+                    list.add(file)
+                }
+            }
+        }
+    }
+
+    private fun isJunkFile(file: File): Boolean {
+        val name = file.name.lowercase()
+        return name.endsWith(".tmp") || 
+               name.endsWith(".temp") || 
+               name.endsWith(".log") || 
+               name.startsWith("thumb") || // classic thumb data
+               name == "thumbs.db" ||
+               name == ".ds_store"
+    }
+
+    // Deprecated/Unused standard cache methods
+    suspend fun getCacheSize_Legacy(): Long = 0
+    suspend fun clearCache_Legacy(): Boolean = false
 
     private fun getDirSize(dir: File): Long {
         var size: Long = 0
@@ -351,8 +392,8 @@ class FileRepository(private val context: Context) {
             FileType.APK -> "${MediaStore.Files.FileColumns.DATA} LIKE '%.apk'" to null
             FileType.ARCHIVE -> {
                  val mimeTypes = arrayOf("application/zip", "application/x-rar-compressed", "application/x-7z-compressed")
-                 val selection = mimeTypes.joinToString(" OR ") { "${MediaStore.Files.FileColumns.MIME_TYPE} = ?" } + " OR ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE '%.zip' OR ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE '%.rar' OR ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE '%.7z'"
-                 selection to null
+                 val selection = mimeTypes.joinToString(" OR ") { "${MediaStore.Files.FileColumns.MIME_TYPE} = ?" }
+                 "($selection)" to mimeTypes
             }
             FileType.DOWNLOAD -> if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 "${MediaStore.Files.FileColumns.DATA} LIKE ?" to arrayOf("%/Download/%")
@@ -424,18 +465,108 @@ class FileRepository(private val context: Context) {
         val videoBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
         val audioBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO)
         val documentBytes = getDocumentSize()
+        val appBytes = getAppSize()
+        val archiveBytes = getArchiveSize()
         
-        val mediaSum = imageBytes + videoBytes + audioBytes + documentBytes
+        val mediaSum = imageBytes + videoBytes + audioBytes + documentBytes + appBytes + archiveBytes
         val otherBytes = if (usedBytes > mediaSum) usedBytes - mediaSum else 0L
 
-        StorageInfo(totalBytes, freeBytes, usedBytes, imageBytes, videoBytes, audioBytes, documentBytes, otherBytes)
+        StorageInfo(totalBytes, freeBytes, usedBytes, imageBytes, videoBytes, audioBytes, documentBytes, appBytes, archiveBytes, otherBytes)
+    }
+
+    private fun getAppSize(): Long {
+        var size: Long = 0
+        try {
+            val pm = context.packageManager
+            val installedApps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+            } else {
+                pm.getInstalledApplications(0)
+            }
+            
+            // Check for Usage Access Permission (API 23+)
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            } else {
+                appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            }
+            val hasPermission = mode == android.app.AppOpsManager.MODE_ALLOWED
+
+            if (hasPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Precise Calculation using StorageStatsManager (API 26+)
+                val storageStatsManager = context.getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
+                val userHandle = Process.myUserHandle()
+                val storageUuid = android.os.storage.StorageManager.UUID_DEFAULT // Internal Storage
+
+                installedApps.forEach { appInfo ->
+                     // removed FLAG_SYSTEM check to include all apps
+                     try {
+                         val stats = storageStatsManager.queryStatsForPackage(storageUuid, appInfo.packageName, userHandle)
+                         size += stats.appBytes + stats.dataBytes + stats.cacheBytes
+                     } catch (e: Exception) {
+                         // Fallback individually
+                         val file = File(appInfo.sourceDir)
+                         if (file.exists()) size += file.length()
+                     }
+                }
+            } else {
+                     // Fallback: APK Size only
+                 installedApps.forEach { appInfo ->
+                    // Include all apps, system or user
+                    val file = File(appInfo.sourceDir)
+                    if (file.exists()) {
+                         size += file.length()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return size
+    }
+
+    private fun getArchiveSize(): Long {
+        var size: Long = 0
+        val projection = arrayOf("sum(${MediaStore.Files.FileColumns.SIZE})")
+        val (selection, selectionArgs) = getSelectionForCategory(FileType.ARCHIVE)
+        
+        val queryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Files.getContentUri("external")
+        }
+
+        try {
+            context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    size = cursor.getLong(0)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return size
     }
 
     private fun getDocumentSize(): Long {
         var size: Long = 0
         val projection = arrayOf("sum(${MediaStore.Files.FileColumns.SIZE})")
         
-        val mimeTypes = arrayOf("application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "text/plain")
+        // Expanded Document Types
+        val mimeTypes = arrayOf(
+            "application/pdf", 
+            "application/msword", 
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // xlsx
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
+            "text/plain",
+            "text/rtf",
+            "text/html", // optional
+            "application/epub+zip"
+        )
         val selection = mimeTypes.joinToString(" OR ") { "${MediaStore.Files.FileColumns.MIME_TYPE} = ?" }
         
         val queryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -445,6 +576,7 @@ class FileRepository(private val context: Context) {
         }
 
         try {
+             // Pass mimeTypes as args for the ? placeholders
             context.contentResolver.query(queryUri, projection, selection, mimeTypes, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     size = cursor.getLong(0)
@@ -531,6 +663,16 @@ class FileRepository(private val context: Context) {
         if (recentUsageBytes > 0) recentUsageBytes / 30 else 0
     }
 
+
+    fun hasUsageAccess(): Boolean {
+        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+        } else {
+            appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+        }
+        return mode == android.app.AppOpsManager.MODE_ALLOWED
+    }
 
     private fun getCategorySize(mediaType: Int): Long {
         var size: Long = 0

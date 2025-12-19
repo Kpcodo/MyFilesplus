@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,6 +36,8 @@ fun StorageDashboard(
     cacheSize: Long, // Added parameter
     emptyFoldersCount: Int,
     forecastText: String,
+    hasUsageAccess: Boolean = true,
+    onRequestUsageAccess: () -> Unit,
     onFreeUpClick: () -> Unit,
     onGhostFilesClick: () -> Unit,
     onForecastClick: () -> Unit
@@ -56,48 +59,50 @@ fun StorageDashboard(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Metrics Row
+            if (!hasUsageAccess) {
+                PermissionRequestCard(
+                    onClick = onRequestUsageAccess,
+                    modifier = Modifier.padding(bottom = 24.dp)
+                )
+            }
+
+            // Metrics Row (New Design)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically // Align button with text block vertical center
             ) {
                 Column {
                     val percentage = if (storageInfo.totalBytes > 0) {
                         (storageInfo.usedBytes.toFloat() / storageInfo.totalBytes) * 100
                     } else 0f
                     
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "${percentage.toInt()}",
-                            fontSize = 48.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 48.sp
-                        )
-                        Text(
-                            text = "%",
-                            fontSize = 24.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
-                        )
-                    }
+                    Text(
+                        text = "${percentage.toInt()}%", // "80%" style
+                        fontSize = 42.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 42.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
                         text = "${FileUtils.formatSize(storageInfo.usedBytes)} used of ${FileUtils.formatSize(storageInfo.totalBytes)}",
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
 
                 Button(
                     onClick = onFreeUpClick,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary, // Dynamic primary
+                        containerColor = MaterialTheme.colorScheme.primary, 
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(50),
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(36.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Bolt,
@@ -111,29 +116,29 @@ fun StorageDashboard(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Progress Bar
+            // Progress Bar (Segmented Look)
             StorageProgressBar(storageInfo)
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Legend
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // First Row of Legend
-                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                         LegendItem(color = Color(0xFF6750a4), label = "Images")
-                         LegendItem(color = Color(0xFF4285F4), label = "Video")
-                         LegendItem(color = Color(0xFF009688), label = "Audio")
-                     }
-                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                         LegendItem(color = Color(0xFFFFC107), label = "Docs")
-                         LegendItem(color = Color(0xFFe8b688), label = "Others")
-                         LegendItem(color = MaterialTheme.colorScheme.surfaceVariant, label = "Free")
-                     }
+            // Legend Grid (3 Columns)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Row 1
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    LegendItem(color = Color(0xFF4285F4), label = "Videos", modifier = Modifier.weight(1f))
+                    LegendItem(color = Color(0xFF6750a4), label = "Images", modifier = Modifier.weight(1f))
+                    LegendItem(color = Color(0xFF4CAF50), label = "Apps & Data", modifier = Modifier.weight(1f))
+                }
+                // Row 2
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    LegendItem(color = Color(0xFFFFC107), label = "Docs", modifier = Modifier.weight(1f))
+                    LegendItem(color = Color(0xFF009688), label = "Audio", modifier = Modifier.weight(1f))
+                    LegendItem(color = Color(0xFFe8b688), label = "Others", modifier = Modifier.weight(1f))
+                }
+                // Row 3
+                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    LegendItem(color = MaterialTheme.colorScheme.surfaceVariant, label = "Free", modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(2f)) // Empty space for missing items
                  }
             }
 
@@ -164,20 +169,19 @@ fun StorageDashboard(
 }
 
 @Composable
-fun LegendItem(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+fun LegendItem(color: Color, label: String, modifier: Modifier = Modifier) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         Box(
             modifier = Modifier
-                .size(8.dp)
+                .size(10.dp) // Slightly larger
                 .clip(CircleShape)
                 .background(color)
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(8.dp)) // More spacing
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            fontSize = 10.sp
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), // Darker text
         )
     }
 }
@@ -191,6 +195,7 @@ fun StorageProgressBar(info: StorageInfo) {
     val videoSeg = info.videoBytes.toFloat() / totalStorage
     val audioSeg = info.audioBytes.toFloat() / totalStorage
     val docSeg = info.documentBytes.toFloat() / totalStorage
+    val appSeg = info.appBytes.toFloat() / totalStorage
     val otherSeg = info.otherBytes.toFloat() / totalStorage
 
     // Use clip to ensure the whole bar has rounded corners, allowing segments to be simple Rects without gaps.
@@ -250,15 +255,27 @@ fun StorageProgressBar(info: StorageInfo) {
             currentX += w4
         }
 
+
+        // Apps
+        val w6 = width * appSeg
+        if (w6 > 0) {
+             drawRect(
+                color = Color(0xFF4CAF50), // Green
+                topLeft = Offset(currentX, 0f),
+                size = androidx.compose.ui.geometry.Size(w6, height)
+            )
+            currentX += w6
+        }
+
         // Others
-        val w5 = width * otherSeg
-        if (w5 > 0) {
+        val w7 = width * otherSeg
+        if (w7 > 0) {
              drawRect(
                 color = Color(0xFFe8b688), // Peach
                 topLeft = Offset(currentX, 0f),
-                size = androidx.compose.ui.geometry.Size(w5, height)
+                size = androidx.compose.ui.geometry.Size(w7, height)
             )
-            currentX += w5
+            currentX += w7
         }
     }
 }
@@ -318,6 +335,46 @@ fun SmartToolCard(
                         .padding(10.dp) // Closer to the corner
                         .size(8.dp)
                         .background(Color(0xFFFF5252), CircleShape)
+                )
+            }
+        }
+    }
+    }
+}
+
+@Composable
+fun PermissionRequestCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = "Grant Usage Access",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Required for accurate app size metrics",
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }
