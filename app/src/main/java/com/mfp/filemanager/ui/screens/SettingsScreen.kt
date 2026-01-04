@@ -41,6 +41,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -77,16 +78,37 @@ fun SettingsScreen(
         }
     }
 
-    if (updateState is com.mfp.filemanager.ui.viewmodels.UpdateCheckState.UpdateAvailable) {
-        val release = (updateState as com.mfp.filemanager.ui.viewmodels.UpdateCheckState.UpdateAvailable).release
-        UpdateAvailableDialog(
-            release = release,
-            onDismiss = { viewModel.resetUpdateState() },
-            onUpdate = {
-                uriHandler.openUri(release.htmlUrl)
-                viewModel.resetUpdateState()
-            }
-        )
+    when (val s = updateState) {
+        is com.mfp.filemanager.ui.viewmodels.UpdateCheckState.UpdateAvailable -> {
+            UpdateAvailableDialog(
+                release = s.release,
+                onDismiss = { viewModel.resetUpdateState() },
+                onUpdate = {
+                    viewModel.downloadUpdate(s.release, context)
+                }
+            )
+        }
+        is com.mfp.filemanager.ui.viewmodels.UpdateCheckState.Downloading -> {
+            DownloadProgressDialog(progress = s.progress)
+        }
+        is com.mfp.filemanager.ui.viewmodels.UpdateCheckState.DownloadFinished -> {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { viewModel.resetUpdateState() },
+                title = { Text("Update Ready") },
+                text = { Text("The update has been downloaded and is ready to install.") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = { viewModel.installApk(context, s.file) }) {
+                        Text("Install Now")
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { viewModel.resetUpdateState() }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+        else -> {}
     }
 
     Scaffold(
@@ -545,4 +567,28 @@ fun ColorPicker(selectedColor: Int, onColorSelected: (Int) -> Unit) {
             }
         }
     }
+}
+@Composable
+fun DownloadProgressDialog(progress: Float) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { },
+        title = { Text("Downloading Update") },
+        text = {
+            Column {
+                Text("Please wait while the update is downloaded...")
+                Spacer(modifier = Modifier.height(16.dp))
+                LinearProgressIndicator(
+                    progress = progress,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    modifier = Modifier.align(Alignment.End),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {}
+    )
 }

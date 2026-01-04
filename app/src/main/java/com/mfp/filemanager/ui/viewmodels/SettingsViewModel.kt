@@ -11,6 +11,11 @@ import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.serialization.kotlinx.json.json
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
+import io.ktor.client.plugins.onDownload
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +43,8 @@ sealed class UpdateCheckState {
     object Idle : UpdateCheckState()
     object Checking : UpdateCheckState()
     data class UpdateAvailable(val release: GitHubRelease) : UpdateCheckState()
+    data class Downloading(val progress: Float) : UpdateCheckState()
+    data class DownloadFinished(val file: File) : UpdateCheckState()
     object UpToDate : UpdateCheckState()
     data class Error(val message: String) : UpdateCheckState()
 }
@@ -85,6 +92,52 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 e.printStackTrace()
                 _updateState.value = UpdateCheckState.Error("Check failed: ${e.message}")
             }
+        }
+    }
+
+    fun downloadUpdate(release: GitHubRelease, context: Context) {
+        viewModelScope.launch {
+            val apkAsset = release.assets.find { it.name.endsWith(".apk") }
+            if (apkAsset == null) {
+                _updateState.value = UpdateCheckState.Error("No APK found in release")
+                return@launch
+            }
+
+            _updateState.value = UpdateCheckState.Downloading(0f)
+            
+            try {
+                val bytes = httpClient.get(apkAsset.downloadUrl) {
+                    onDownload { bytesSentTotal, contentLength ->
+                        if (contentLength > 0) {
+                            val progress = bytesSentTotal.toFloat() / contentLength
+                            _updateState.value = UpdateCheckState.Downloading(progress)
+                        }
+                    }
+                }.body<ByteArray>()
+                
+                val file = File(context.getExternalFilesDir(null), apkAsset.name)
+                file.writeBytes(bytes)
+
+                _updateState.value = UpdateCheckState.DownloadFinished(file)
+                installApk(context, file)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _updateState.value = UpdateCheckState.Error("Download failed: ${e.message}")
+            }
+        }
+    }
+
+    fun installApk(context: Context, file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            _updateState.value = UpdateCheckState.Error("Install failed: ${e.message}")
         }
     }
 
