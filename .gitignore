@@ -28,6 +28,10 @@ proguard/
 
 # Log Files
 *.log
+build_*_log.txt
+hs_err_pid*.log
+replay_pid*.log
+.kotlin/
 
 # Android Studio Navigation editor temp files
 .navigation/
