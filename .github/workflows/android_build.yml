@@ -26,6 +26,9 @@ jobs:
       with:
         cache-read-only: false 
 
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
     - name: Build with Gradle
       run: ./gradlew assembleDebug --no-daemon --parallel --build-cache --configuration-cache -x lint -x test
 
