@@ -1,4 +1,4 @@
-package com.example.filemanager.ui
+package com.example.filemanager.ui.screens
 
 import android.content.Intent
 import android.net.Uri
@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import com.example.filemanager.ui.viewmodels.HomeViewModel
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)

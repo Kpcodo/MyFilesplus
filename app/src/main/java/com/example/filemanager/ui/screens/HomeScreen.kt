@@ -1,7 +1,8 @@
-package com.example.filemanager.ui
+package com.example.filemanager.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import com.example.filemanager.ui.viewmodels.HomeViewModel
 import com.example.filemanager.ui.components.animateEnter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

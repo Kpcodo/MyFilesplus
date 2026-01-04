@@ -1,4 +1,4 @@
-package com.example.filemanager.ui
+package com.example.filemanager.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.filemanager.data.FileModel
+import com.example.filemanager.ui.viewmodels.HomeViewModel
 import com.example.filemanager.data.FileUtils
 import java.io.File
 

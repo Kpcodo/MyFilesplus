@@ -1,7 +1,8 @@
-package com.example.filemanager.ui
+package com.example.filemanager.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import com.example.filemanager.ui.viewmodels.SettingsViewModel
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

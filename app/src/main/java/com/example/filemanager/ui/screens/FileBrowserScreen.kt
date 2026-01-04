@@ -1,4 +1,4 @@
-package com.example.filemanager.ui
+package com.example.filemanager.ui.screens
 
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -95,6 +95,10 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import com.example.filemanager.ui.components.bounceClick
 import com.example.filemanager.ui.components.animateEnter
+import com.example.filemanager.ui.viewmodels.HomeViewModel
+import com.example.filemanager.ui.SortType
+import com.example.filemanager.ui.SortOrder
+import com.example.filemanager.ui.ViewType
 import androidx.compose.foundation.lazy.itemsIndexed
 import java.io.File
 

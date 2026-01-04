@@ -1,4 +1,4 @@
-package com.example.filemanager.ui
+package com.example.filemanager.ui.screens
 
 import android.content.ContentUris
 import android.provider.MediaStore
@@ -33,6 +33,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.example.filemanager.data.ClipboardOperation
 import com.example.filemanager.data.FileModel
+import com.example.filemanager.ui.viewmodels.HomeViewModel
 import com.example.filemanager.data.FileType
 import com.example.filemanager.data.FileUtils
 import com.example.filemanager.ui.components.InlineFileMenu

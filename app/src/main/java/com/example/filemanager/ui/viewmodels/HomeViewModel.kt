@@ -1,4 +1,4 @@
-package com.example.filemanager.ui
+package com.example.filemanager.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -12,6 +12,9 @@ import com.example.filemanager.data.SettingsRepository
 import com.example.filemanager.data.StorageInfo
 import com.example.filemanager.data.StorageVolumeInfo
 import com.example.filemanager.data.TrashedFile
+import com.example.filemanager.ui.SortType
+import com.example.filemanager.ui.SortOrder
+import com.example.filemanager.ui.ViewType
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow

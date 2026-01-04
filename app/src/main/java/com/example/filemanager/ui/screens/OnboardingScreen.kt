@@ -1,4 +1,4 @@
-package com.example.filemanager.ui
+package com.example.filemanager.ui.screens
 
 import android.os.Build
 import androidx.compose.foundation.layout.*
