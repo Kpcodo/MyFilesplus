@@ -1,0 +1,78 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as configuration cache cannot be reused because file 'gradle.properties' has changed.
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:processDebugResources
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeLibDexDebug UP-TO-DATE
+The message received from the daemon indicates that the daemon has disappeared.
+Build request sent: Build{id=2290de47-12a3-4429-b317-3ba85e372bcb, currentDir=G:\DEVS\Android projects\FileManagerApp}
+Attempting to read last messages from the daemon log...
+Daemon pid: 22864
+  log file: G:\DEVS\Gradle\daemon\8.13\daemon-22864.out.log
+----- Last 20 lines from daemon log file - daemon-22864.out.log -----
+2026-01-05T01:39:06.749+0530 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] Command execution: started DaemonCommandExecution[command = Build{id=2290de47-12a3-4429-b317-3ba85e372bcb, currentDir=G:\DEVS\Android projects\FileManagerApp}, connection = DefaultDaemonConnection: socket connection from /127.0.0.1:54175 to /127.0.0.1:54176] after 0.0033 minutes of idle
+2026-01-05T01:39:06.749+0530 [INFO] [org.gradle.launcher.daemon.server.DaemonRegistryUpdater] Marking the daemon as busy, address: [4e156b0a-a2e3-4538-be79-6e9591200440 port:54175, addresses:[localhost/127.0.0.1]]
+2026-01-05T01:39:06.749+0530 [DEBUG] [org.gradle.launcher.daemon.registry.PersistentDaemonRegistry] Marking busy by address: [4e156b0a-a2e3-4538-be79-6e9591200440 port:54175, addresses:[localhost/127.0.0.1]]
+2026-01-05T01:39:06.749+0530 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Waiting to acquire exclusive lock on daemon addresses registry.
+2026-01-05T01:39:06.750+0530 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Lock acquired on daemon addresses registry.
+2026-01-05T01:39:06.751+0530 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Releasing lock on daemon addresses registry.
+2026-01-05T01:39:06.751+0530 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] resetting idle timer
+2026-01-05T01:39:06.751+0530 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] daemon is running. Sleeping until state changes.
+2026-01-05T01:39:06.752+0530 [INFO] [org.gradle.launcher.daemon.server.exec.StartBuildOrRespondWithBusy] Daemon is about to start building Build{id=2290de47-12a3-4429-b317-3ba85e372bcb, currentDir=G:\DEVS\Android projects\FileManagerApp}. Dispatching build started information...
+2026-01-05T01:39:06.752+0530 [DEBUG] [org.gradle.launcher.daemon.server.SynchronizedDispatchConnection] thread 24: dispatching org.gradle.launcher.daemon.protocol.BuildStarted@4f68565b
+2026-01-05T01:39:06.753+0530 [DEBUG] [org.gradle.launcher.daemon.server.exec.EstablishBuildEnvironment] Configuring env variables: [USERDOMAIN_ROAMINGPROFILE, PROCESSOR_LEVEL, SESSIONNAME, ALLUSERSPROFILE, PROCESSOR_ARCHITECTURE, VSCODE_PYTHON_AUTOACTIVATE_GUARD, VSCODE_GIT_IPC_HANDLE, PSModulePath, SystemDrive, EFC_10152_2283032206, VSCODE_INJECTION, COLORTERM, EFC_10152_2775293581, DIRNAME, USERNAME, VSCODE_GIT_ASKPASS_NODE, TERM_PROGRAM_VERSION, ProgramFiles(x86), GIT_ASKPASS, CHROME_CRASHPAD_PIPE_NAME, EFC_10152_1592913036, APP_HOME, DEFAULT_JVM_OPTS, PATHEXT, DriverData, PAGER, EFC_10152_3789132940, GOPATH, ORIGINAL_XDG_CURRENT_DESKTOP, ProgramData, ProgramW6432, HOMEPATH, PROCESSOR_IDENTIFIER, POWERSHELL_DISTRIBUTION_CHANNEL, ProgramFiles, PUBLIC, windir, ZES_ENABLE_SYSMAN, LOCALAPPDATA, USERDOMAIN, LOGONSERVER, JAVA_HOME, PROMPT, EFC_10152_1262719628, LANG, =G:, VSCODE_GIT_ASKPASS_MAIN, OneDrive, APPDATA, GRADLE_USER_HOME, JAVA_EXE, VSCODE_GIT_ASKPASS_EXTRA_ARGS, CommonProgramFiles, Path, ANTIGRAVITY_CLI_ALIAS, OS, TERM_PROGRAM, VSCODE_JDWP_ADAPTER_ENDPOINTS, COMPUTERNAME, PROCESSOR_REVISION, CLASSPATH, CommonProgramW6432, ComSpec, APP_BASE_NAME, SystemRoot, TEMP, HOMEDRIVE, USERPROFILE, TMP, CommonProgramFiles(x86), NUMBER_OF_PROCESSORS, ANTIGRAVITY_AGENT, VSCODE_JAVA_EXEC]
+2026-01-05T01:39:06.756+0530 [DEBUG] [org.gradle.launcher.daemon.server.exec.LogToClient] About to start relaying all logs to the client via the connection.
+2026-01-05T01:39:06.757+0530 [INFO] [org.gradle.launcher.daemon.server.exec.LogToClient] The client will now receive all logging from the daemon (pid: 22864). The daemon log file: G:\DEVS\Gradle\daemon\8.13\daemon-22864.out.log
+2026-01-05T01:39:06.758+0530 [DEBUG] [org.gradle.launcher.daemon.server.exec.RequestStopIfSingleUsedDaemon] Requesting daemon stop after processing Build{id=2290de47-12a3-4429-b317-3ba85e372bcb, currentDir=G:\DEVS\Android projects\FileManagerApp}
+2026-01-05T01:39:06.758+0530 [LIFECYCLE] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] Daemon will be stopped at the end of the build 
+2026-01-05T01:39:06.758+0530 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] Stop as soon as idle requested. The daemon is busy
+2026-01-05T01:39:06.758+0530 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] daemon stop has been requested. Sleeping until state changes.
+2026-01-05T01:39:06.760+0530 [DEBUG] [org.gradle.launcher.daemon.server.exec.ExecuteBuild] The daemon has started executing the build.
+2026-01-05T01:39:06.760+0530 [DEBUG] [org.gradle.launcher.daemon.server.exec.ExecuteBuild] Executing build with daemon context: DefaultDaemonContext[uid=526a1650-445f-49da-a2c3-e61fa3978626,javaHome=C:\Program Files\Microsoft\jdk-17.0.17.10-hotspot,javaVersion=17,javaVendor=Microsoft,daemonRegistryDir=G:\DEVS\Gradle\daemon,pid=22864,idleTimeout=120000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=512m,-Xmx3072m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]
+Calculating task graph as configuration cache cannot be reused because file 'gradle.properties' has changed.----- End of the daemon log -----
+
+JVM crash log found: file:///G:/DEVS/Android%20projects/FileManagerApp/hs_err_pid22864.log
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Gradle build daemon disappeared unexpectedly (it may have been killed or may have crashed)
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+> Task :app:compileDebugKotlin
+> Task :app:mergeExtDexDebug
