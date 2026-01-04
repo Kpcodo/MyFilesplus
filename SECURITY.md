@@ -33,8 +33,7 @@ Please **do not** create public GitHub issues for security vulnerabilities.
     *   Description of the vulnerability.
     *   Steps to reproduce.
     *   Affected Android versions/Devices.
-2.  Email the maintainers directly at: **security@example.com** (Replace with actual email or contact method).
-
+2.  Email the maintainers directly at: **codebridgehub28@outlook.com**.
 ### Response Timeline
 *   **Acknowledgement**: 48 hours.
 *   **Assessment**: 5 business days.
