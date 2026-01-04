@@ -4,18 +4,14 @@ import android.os.Bundle
 import android.os.Environment
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -26,7 +22,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.Button
+
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +40,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import com.example.filemanager.ui.components.bounceClick
+import androidx.compose.runtime.CompositionLocalProvider
+import com.example.filemanager.ui.components.LocalAnimationSpeed
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -57,11 +56,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import coil.Coil
-import coil.ImageLoader
-import coil.decode.VideoFrameDecoder
+
 import com.example.filemanager.data.FileRepository
 import com.example.filemanager.data.FileType
+import com.example.filemanager.ui.SettingsViewModel
+import com.example.filemanager.ui.SettingsViewModelFactory
+import com.example.filemanager.ui.SettingsScreen
 import com.example.filemanager.data.SettingsRepository
 import com.example.filemanager.ui.AllCategoriesScreen
 import com.example.filemanager.ui.FileBrowserScreen
@@ -71,14 +71,12 @@ import com.example.filemanager.ui.HomeViewModel
 import com.example.filemanager.ui.HomeViewModelFactory
 import com.example.filemanager.ui.ImageViewerScreen
 import com.example.filemanager.ui.RecentsScreen
-import com.example.filemanager.ui.SettingsScreen
-import com.example.filemanager.ui.SettingsViewModel
-import com.example.filemanager.ui.SettingsViewModelFactory
 import com.example.filemanager.ui.AppPermissionHandler
 import com.example.filemanager.ui.PermissionType
 import com.example.filemanager.ui.theme.FileManagerTheme
 import java.net.URLDecoder
 import java.net.URLEncoder
+import android.widget.Toast
 import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
@@ -89,11 +87,12 @@ class MainActivity : ComponentActivity() {
         val settingsRepository = SettingsRepository(applicationContext)
         val viewModelFactory = HomeViewModelFactory(repository, settingsRepository)
 
-        val imageLoader = ImageLoader.Builder(context = this)
-            .components { add(VideoFrameDecoder.Factory()) }
-            .crossfade(true)
-            .build()
-        Coil.setImageLoader(imageLoader)
+        // Coil ImageLoader is handled by FileManagerApplication
+        // val imageLoader = ImageLoader.Builder(context = this)
+        //     .components { add(VideoFrameDecoder.Factory()) }
+        //     .crossfade(true)
+        //     .build()
+        // Coil.setImageLoader(imageLoader)
 
         // Settings Init
         val settingsViewModelFactory = SettingsViewModelFactory(settingsRepository)
@@ -120,10 +119,11 @@ class MainActivity : ComponentActivity() {
                     AppPermissionHandler(
                         onPermissionGranted = {
                             val viewModel: HomeViewModel = viewModel(factory = viewModelFactory)
-                            MainScreen(viewModel, settingsViewModel)
-                        },
-                        onPermissionDenied = { missingPermission, requestPermission ->
-                            PermissionDeniedScreen(missingPermission, requestPermission)
+                            CompositionLocalProvider(
+                                LocalAnimationSpeed provides settingsState.animationSpeed
+                            ) {
+                                MainScreen(viewModel, settingsViewModel)
+                            }
                         }
                     )
                 }
@@ -132,43 +132,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun PermissionDeniedScreen(missingPermission: PermissionType, onRequestPermission: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "Permission Required",
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            val message = when (missingPermission) {
-                PermissionType.STORAGE -> "To manage your files, this app needs access to your device's storage. Please grant the necessary permissions."
-                PermissionType.USAGE_STATS -> "To analyze storage usage (app sizes, cache), this app needs Usage Access permission."
-            }
-            
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onRequestPermission) {
-                val buttonText = when (missingPermission) {
-                    PermissionType.STORAGE -> "Grant Storage Permission"
-                    PermissionType.USAGE_STATS -> "Grant Usage Access"
-                }
-                Text(buttonText)
-            }
-        }
-    }
-}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -241,7 +205,8 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
                                 icon = { 
                                     Icon(
                                         imageVector = if (selected) item.selectedIcon else item.unselectedIcon, 
-                                        contentDescription = item.title
+                                        contentDescription = item.title,
+                                        modifier = Modifier.bounceClick()
                                     )
                                  },
                                 label = { Text(item.title) }
@@ -342,8 +307,22 @@ fun AppNavigation(
     NavHost(navController = navController, startDestination = "home", modifier = modifier) {
         composable(
             route = "home",
-            enterTransition = { fadeIn(tween(300)) },
-            exitTransition = { fadeOut(tween(300)) }
+            enterTransition = {
+                val from = initialState.destination.route
+                if (from == "recents" || from == "trash" || from == "settings") {
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                } else {
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) // Fallback or distinct
+                }
+            },
+            exitTransition = {
+                val to = targetState.destination.route
+                if (to == "recents" || to == "trash" || to == "settings") {
+                     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                } else {
+                     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                }
+            }
         ) {
             HomeScreen(
                 viewModel = viewModel,
@@ -359,12 +338,19 @@ fun AppNavigation(
                     navController.navigate("categories_all")
                 },
                 onOtherStorageClick = {
-                    navController.navigate("other_storage")
+                    val otherVolumes = viewModel.getOtherVolumes()
+                    if (otherVolumes.isNotEmpty()) {
+                        // For now, open the first available external volume
+                        val volume = otherVolumes[0]
+                        val rootPath = volume.file.path
+                        val encodedPath = URLEncoder.encode(rootPath, "UTF-8")
+                        val encodedTitle = URLEncoder.encode(volume.name, "UTF-8")
+                        navController.navigate("file_browser/$encodedPath?title=$encodedTitle")
+                    } else {
+                        Toast.makeText(context, "No external storage found", Toast.LENGTH_SHORT).show()
+                    }
                 },
                 onSearchClick = onRequestSearch,
-                onGhostFilesClick = { 
-                    navController.navigate("ghost_files")
-                },
                 onForecastClick = { 
                     navController.navigate("forecast_detail")
                 }
@@ -373,8 +359,22 @@ fun AppNavigation(
 
         composable(
             route = "recents",
-            enterTransition = { fadeIn(tween(300)) },
-            exitTransition = { fadeOut(tween(300)) }
+            enterTransition = {
+                val from = initialState.destination.route
+                if (from == "trash" || from == "settings") {
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                } else {
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                }
+            },
+            exitTransition = {
+                 val to = targetState.destination.route
+                 if (to == "trash" || to == "settings") {
+                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                 } else {
+                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                 }
+            }
         ) {
             RecentsScreen(
                 viewModel = viewModel,
@@ -399,7 +399,25 @@ fun AppNavigation(
             )
         }
 
-        composable("trash") {
+        composable(
+            route = "trash",
+            enterTransition = {
+                val from = initialState.destination.route
+                if (from == "settings") {
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                } else {
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                }
+            },
+            exitTransition = {
+                 val to = targetState.destination.route
+                 if (to == "settings") {
+                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                 } else {
+                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                 }
+            }
+        ) {
             com.example.filemanager.ui.TrashScreen(
                 viewModel = viewModel,
                 showTopBar = !isSwipeEnabled,
@@ -409,13 +427,7 @@ fun AppNavigation(
             )
         }
 
-        composable("ghost_files") {
-            com.example.filemanager.ui.GhostFilesScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
+        // Ghost Files Route Removed
 
         composable("forecast_detail") {
             com.example.filemanager.ui.ForecastScreen(
@@ -432,7 +444,13 @@ fun AppNavigation(
             )
         }
 
-        composable("settings") {
+        composable(
+            route = "settings",
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) }
+        ) {
             SettingsScreen(
                 viewModel = settingsViewModel,
                 showTopBar = !isSwipeEnabled,
@@ -442,7 +460,11 @@ fun AppNavigation(
 
         composable(
             route = "fileList/{type}",
-            arguments = listOf(navArgument("type") { type = NavType.StringType })
+            arguments = listOf(navArgument("type") { type = NavType.StringType }),
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) }
         ) { backStackEntry ->
             val typeName = backStackEntry.arguments?.getString("type")
             val type = runCatching { FileType.valueOf(typeName ?: "") }.getOrDefault(FileType.UNKNOWN)
@@ -463,18 +485,36 @@ fun AppNavigation(
         }
 
         composable(
-            route = "file_browser/{path}",
-            arguments = listOf(navArgument("path") { type = NavType.StringType })
+            route = "file_browser/{path}?title={title}",
+            arguments = listOf(
+                navArgument("path") { type = NavType.StringType },
+                navArgument("title") { type = NavType.StringType; nullable = true; defaultValue = null }
+            ),
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) }
         ) { backStackEntry ->
             val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
             val path = URLDecoder.decode(encodedPath, "UTF-8")
+            val encodedTitle = backStackEntry.arguments?.getString("title")
+            val title = if (encodedTitle != null) URLDecoder.decode(encodedTitle, "UTF-8") else null
+            
             FileBrowserScreen(
                 viewModel = viewModel,
                 path = path,
+                title = title,
                 onBack = { navController.popBackStack() },
                 onFileClick = { file ->
                     if (file.isDirectory) {
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                        // Recursively pass the same title if it's the root of external storage?
+                        // Or maybe not. If we click a folder, we generally want the folder name.
+                        // But for "Other Storage" root -> shows "Samsung USB".
+                        // Subfolder -> shows "MyFolder". 
+                        // Implementation of FileBrowserTopAppBar handles this: 
+                        // if title is null, it shows folder name. 
+                        // So we DON'T pass title for subfolders, letting them show their own names.
                         navController.navigate("file_browser/$encodedPath")
                     } else {
                         if (file.type == FileType.IMAGE) {
@@ -485,7 +525,7 @@ fun AppNavigation(
                         }
                     }
                 },
-                 onDirectoryClick = { 
+                onDirectoryClick = { 
                     val encodedPath = URLEncoder.encode(it.path, "UTF-8")
                     navController.navigate("file_browser/$encodedPath")
                 },

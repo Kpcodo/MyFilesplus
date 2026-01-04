@@ -7,8 +7,11 @@ import com.example.filemanager.data.ClipboardOperation
 import com.example.filemanager.data.FileModel
 import com.example.filemanager.data.FileRepository
 import com.example.filemanager.data.FileType
+import com.example.filemanager.data.FileUtils
 import com.example.filemanager.data.SettingsRepository
 import com.example.filemanager.data.StorageInfo
+import com.example.filemanager.data.StorageVolumeInfo
+import com.example.filemanager.data.TrashedFile
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,22 +25,15 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
+
 class HomeViewModel(
     private val repository: FileRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    init {
-        viewModelScope.launch {
-            settingsRepository.trashRetentionDays.collect { days ->
-                val deletedCount = repository.cleanupExpiredTrash(days)
-                if (deletedCount > 0) {
-                    loadTrashedFiles()
-                    _trashSize.value = repository.getTrashSize()
-                }
-            }
-        }
-    }
+    private val _hasUsageAccess = MutableStateFlow(false)
+
+
 
     private val _storageInfo = MutableStateFlow<StorageInfo?>(null)
     val storageInfo: StateFlow<StorageInfo?> = _storageInfo
@@ -50,8 +46,6 @@ class HomeViewModel(
     private val _files = MutableStateFlow<List<FileModel>>(emptyList())
     val files: StateFlow<List<FileModel>> = _files.asStateFlow()
 
-    private val _ghostFiles = MutableStateFlow<List<File>>(emptyList())
-    val ghostFiles: StateFlow<List<File>> = _ghostFiles.asStateFlow()
 
     private val _forecastText = MutableStateFlow("...")
     val forecastText: StateFlow<String> = _forecastText.asStateFlow()
@@ -132,20 +126,10 @@ class HomeViewModel(
         initialValue = 1.0f
     )
 
-    private val _hasUsageAccess = MutableStateFlow(false)
-    val hasUsageAccess: StateFlow<Boolean> = _hasUsageAccess.asStateFlow()
+
 
     fun checkUsageAccess() {
         _hasUsageAccess.value = repository.hasUsageAccess()
-    }
-
-    private val _navigationEvents = MutableSharedFlow<NavigationEvent>()
-    val navigationEvents = _navigationEvents.asSharedFlow()
-
-    fun requestUsageAccess() {
-        viewModelScope.launch {
-            _navigationEvents.emit(NavigationEvent.RequestUsageAccess)
-        }
     }
 
     sealed class NavigationEvent {
@@ -331,23 +315,6 @@ class HomeViewModel(
         }
     }
 
-    fun restoreFile(trashedFile: com.example.filemanager.data.TrashedFile) {
-        viewModelScope.launch {
-            if (repository.restoreFile(trashedFile)) {
-                loadTrashedFiles()
-            }
-        }
-    }
-
-    fun deleteFilePermanently(trashedFile: com.example.filemanager.data.TrashedFile) {
-        viewModelScope.launch {
-            if (repository.deleteFilePermanently(trashedFile)) {
-                loadTrashedFiles()
-                _trashSize.value = repository.getTrashSize()
-            }
-        }
-    }
-
     fun restoreFiles(trashedFiles: List<com.example.filemanager.data.TrashedFile>) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -444,8 +411,6 @@ class HomeViewModel(
     private val _trashSize = MutableStateFlow<Long>(0)
     val trashSize: StateFlow<Long> = _trashSize.asStateFlow()
 
-    private val _emptyFoldersCount = MutableStateFlow(0)
-    val emptyFoldersCount: StateFlow<Int> = _emptyFoldersCount.asStateFlow()
 
     private val _largeFilesCount = MutableStateFlow(0)
 
@@ -469,25 +434,17 @@ class HomeViewModel(
 
     private suspend fun fetchDashboardData() = kotlinx.coroutines.coroutineScope {
         val trashSizeDeferred = async { repository.getTrashSize() }
-        val emptyFoldersDeferred = async { repository.getEmptyFolders() }
-        val largeFilesDeferred = async { repository.getLargeFiles().size }
         val forecastTextDeferred = async { repository.calculateStorageForecast() }
-        val cacheSizeDeferred = async { repository.getJunkSize() }
 
         _trashSize.value = trashSizeDeferred.await()
-        val emptyFolders = emptyFoldersDeferred.await()
-        _ghostFiles.value = emptyFolders
-        _emptyFoldersCount.value = emptyFolders.size
-        _largeFilesCount.value = largeFilesDeferred.await()
         _forecastText.value = forecastTextDeferred.await()
-        _cacheSize.value = cacheSizeDeferred.await()
     }
 
     fun loadDashboardData() {
         viewModelScope.launch {
             try {
                 fetchDashboardData()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Log or ignore, silent update
             }
         }
@@ -502,7 +459,7 @@ class HomeViewModel(
                     try { fetchStorageInfo() } catch (e: Exception) { showMessage("Error: ${e.message}") } 
                 }
                 val job2 = launch { 
-                    try { fetchDashboardData() } catch (e: Exception) { /* Silent */ } 
+                    try { fetchDashboardData() } catch (_: Exception) { /* Silent */ } 
                 }
                 
                 // Wait for data
@@ -517,52 +474,6 @@ class HomeViewModel(
         }
     }
 
-    fun deleteGhostFile(file: File) {
-        viewModelScope.launch {
-            if (repository.deleteFile(file.path)) {
-                _ghostFiles.value = _ghostFiles.value.filter { it.path != file.path }
-                _emptyFoldersCount.value = _ghostFiles.value.size
-                // determine if we should subtract from trash size? No, `deleteFile` moves to trash, so trash size increases.
-                // We should reload trash size.
-                _trashSize.value = repository.getTrashSize()
-            }
-        }
-    }
-
-    fun deleteAllGhostFiles() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                _ghostFiles.value.forEach { file ->
-                    repository.deleteFile(file.path)
-                }
-                _ghostFiles.value = emptyList()
-                _emptyFoldersCount.value = 0
-                _trashSize.value = repository.getTrashSize()
-            } catch (e: Exception) {
-                showMessage("Error deleting ghost files: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    private val _cacheSize = MutableStateFlow<Long>(0)
-    val cacheSize: StateFlow<Long> = _cacheSize.asStateFlow()
-
-    fun cleanTemporaryFiles() {
-        viewModelScope.launch {
-            if (repository.clearJunk()) {
-                _cacheSize.value = 0
-                showMessage("Junk files cleaned")
-                // Determine if we should reload other data? Maybe storage info changes slightly.
-                loadStorageInfo()
-            } else {
-                showMessage("Cleaned removable junk files") // Success even if partial
-                _cacheSize.value = 0 
-            }
-        }
-    }
     fun loadForecastDetails() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -609,6 +520,33 @@ class HomeViewModel(
             }
         }
     }
+    init {
+        loadStorageInfo()
+        loadDashboardData()
+        
+        viewModelScope.launch {
+            try {
+                settingsRepository.trashRetentionDays.collect { days ->
+                    try {
+                        val deletedCount = repository.cleanupExpiredTrash(days)
+                        if (deletedCount > 0) {
+                            loadTrashedFiles()
+                            _trashSize.value = repository.getTrashSize()
+                        }
+                    } catch (e: Exception) {
+                        // Log error for trash cleanup, prevent crash
+                        e.printStackTrace()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun getOtherVolumes(): List<StorageVolumeInfo> {
+        return repository.getExternalVolumes()
+    }
 }
 
 class HomeViewModelFactory(private val repository: FileRepository, private val settingsRepository: SettingsRepository) : ViewModelProvider.Factory {
@@ -630,5 +568,3 @@ class HomeViewModelFactory(private val repository: FileRepository, private val s
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
-
-

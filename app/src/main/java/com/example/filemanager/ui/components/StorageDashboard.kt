@@ -1,161 +1,186 @@
 package com.example.filemanager.ui.components
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.filemanager.data.StorageInfo
 import com.example.filemanager.data.FileUtils
-import com.example.filemanager.R
 
 @Composable
 fun StorageDashboard(
     storageInfo: StorageInfo,
     trashSize: Long,
-    cacheSize: Long, // Added parameter
-    emptyFoldersCount: Int,
     forecastText: String,
-    onFreeUpClick: () -> Unit,
-    onGhostFilesClick: () -> Unit,
     onForecastClick: () -> Unit
 ) {
+    // Colors from design
+    val colorVideo = Color(0xFF4285F4) // Blue
+    val colorImage = Color(0xFF9C27B0) // Purple
+    val colorApps = Color(0xFF4CAF50) // Green
+    val colorDocs = Color(0xFFFFC107) // Yellow
+    val colorAudio = Color(0xFF26A69A) // Teal
+    val colorOthers = Color(0xFFFFAB91) // Peach/Orange
+    val colorFree = Color(0xFFF5F5F5) // Light Grey for empty space
+
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh, // Dynamic container color
-        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp),
+        shadowElevation = 4.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier = Modifier.padding(24.dp)
         ) {
-            // Header
-            Text(
-                text = "STORAGE USAGE",
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-
-
-            // Metrics Row (New Design)
+            // --- TOP ROW: Percentage, Details, Forecast Chip ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically // Align button with text block vertical center
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false) 
+                ) {
+                    // Large Percentage
                     val percentage = if (storageInfo.totalBytes > 0) {
                         (storageInfo.usedBytes.toFloat() / storageInfo.totalBytes) * 100
                     } else 0f
                     
                     Text(
-                        text = "${percentage.toInt()}%", // "80%" style
-                        fontSize = 42.sp,
+                        text = "${percentage.toInt()}%",
+                        fontSize = 36.sp, // Reduced from 42sp to save space
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 42.sp
+                        letterSpacing = (-1).sp
                     )
                     
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "${FileUtils.formatSize(storageInfo.usedBytes)} used of ${FileUtils.formatSize(storageInfo.totalBytes)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
+                    Spacer(modifier = Modifier.width(8.dp)) // Reduced from 12dp
+                    
+                    // Usage Details
+                    Column {
+                        Text(
+                            text = "STORAGE USAGE",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp, // Explicitly smaller
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${FileUtils.formatSize(storageInfo.usedBytes)} / ${FileUtils.formatSize(storageInfo.totalBytes)}",
+                            style = MaterialTheme.typography.bodySmall, // Smaller body text
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                            maxLines = 1
+                        )
+                    }
                 }
 
-                Button(
-                    onClick = onFreeUpClick,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary, 
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.height(36.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Forecast Chip
+                Surface(
+                    color = Color(0xFFE3F2FD), // Light Blue
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.clickable { onForecastClick() }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Bolt,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Free up ${FileUtils.formatSize(cacheSize)}", fontSize = 12.sp)
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp, vertical = 4.dp) // Tighter padding
+                            .height(IntrinsicSize.Min),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TrendingUp,
+                            contentDescription = null,
+                            tint = Color(0xFF1976D2), 
+                            modifier = Modifier.size(14.dp) // Smaller icon
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = forecastText, 
+                            fontSize = 11.sp, // Compact text size
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1976D2),
+                            maxLines = 1
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Progress Bar (Segmented Look)
-            StorageProgressBar(storageInfo)
+            // --- PROGRESS BAR ---
+            // We use a custom Row for the segmented bar look
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(colorFree) // Background is "Free" space
+            ) {
+                // Calculate weights
+                val total = storageInfo.totalBytes.toFloat().coerceAtLeast(1f)
+                val wVideo = storageInfo.videoBytes / total
+                val wImage = storageInfo.imageBytes / total
+                val wApps = storageInfo.appBytes / total
+                val wDocs = storageInfo.documentBytes / total
+                val wAudio = storageInfo.audioBytes / total
+                val wOthers = storageInfo.otherBytes / total
+
+                if (wVideo > 0) Box(modifier = Modifier.weight(wVideo).fillMaxHeight().background(colorVideo))
+                if (wImage > 0) Box(modifier = Modifier.weight(wImage).fillMaxHeight().background(colorImage))
+                if (wApps > 0) Box(modifier = Modifier.weight(wApps).fillMaxHeight().background(colorApps))
+                if (wDocs > 0) Box(modifier = Modifier.weight(wDocs).fillMaxHeight().background(colorDocs))
+                if (wAudio > 0) Box(modifier = Modifier.weight(wAudio).fillMaxHeight().background(colorAudio))
+                if (wOthers > 0) Box(modifier = Modifier.weight(wOthers).fillMaxHeight().background(colorOthers))
+                
+                // Remaining space is automatically "Free" because of the container background
+                // But we need to ensure the weights allow for empty space if < 100%
+                // The way 'weight' works in Row, if we don't have a filler, it expands to fill.
+                // So we need an explicit spacer for free space if we want correct proportions.
+                val wUsed = wVideo + wImage + wApps + wDocs + wAudio + wOthers
+                val wFree = 1f - wUsed
+                
+                if (wFree > 0.01f) {
+                     Box(modifier = Modifier.weight(wFree).fillMaxHeight().background(Color.Transparent))
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Legend Grid (3 Columns)
+            // --- LEGEND ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Row 1
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    LegendItem(color = Color(0xFF4285F4), label = "Videos", modifier = Modifier.weight(1f))
-                    LegendItem(color = Color(0xFF6750a4), label = "Images", modifier = Modifier.weight(1f))
-                    LegendItem(color = Color(0xFF4CAF50), label = "Apps & Data", modifier = Modifier.weight(1f))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    LegendItem(color = colorVideo, label = "Videos", modifier = Modifier.weight(1f))
+                    LegendItem(color = colorImage, label = "Images", modifier = Modifier.weight(1f))
+                    LegendItem(color = colorApps, label = "Apps", modifier = Modifier.weight(1f))
+                    LegendItem(color = colorDocs, label = "Docs", modifier = Modifier.weight(1f))
                 }
                 // Row 2
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    LegendItem(color = Color(0xFFFFC107), label = "Docs", modifier = Modifier.weight(1f))
-                    LegendItem(color = Color(0xFF009688), label = "Audio", modifier = Modifier.weight(1f))
-                    LegendItem(color = Color(0xFFe8b688), label = "Others", modifier = Modifier.weight(1f))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    LegendItem(color = colorAudio, label = "Audio", modifier = Modifier.weight(1f))
+                    LegendItem(color = colorOthers, label = "Others", modifier = Modifier.weight(1f))
+                    // Merging the last two slots (weight 2f) to give "Free Space" text room to expand
+                    LegendItem(color = Color(0xFFE0E0E0), label = "Free Space", modifier = Modifier.weight(2f)) 
                 }
-                // Row 3
-                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    LegendItem(color = MaterialTheme.colorScheme.surfaceVariant, label = "Free", modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.weight(2f)) // Empty space for missing items
-                 }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Smart Tools Grid
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SmartToolCard(
-                    title = "Ghost Files",
-                    subtitle = "$emptyFoldersCount Empty Folders",
-                    iconVector = Icons.Default.Description, // Fallback icon
-                    iconColor = MaterialTheme.colorScheme.primary,
-                    hasNotification = emptyFoldersCount > 0,
-                    modifier = Modifier.weight(1f),
-                    onClick = onGhostFilesClick
-                )
-                SmartToolCard(
-                    title = "Forecast",
-                    subtitle = forecastText,
-                    iconVector = Icons.Default.TrendingUp,
-                    iconColor = Color(0xFF2196F3), // Blue color as requested
-                    modifier = Modifier.weight(1f),
-                    onClick = onForecastClick
-                )
             }
         }
     }
@@ -163,184 +188,24 @@ fun StorageDashboard(
 
 @Composable
 fun LegendItem(color: Color, label: String, modifier: Modifier = Modifier) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically, 
+        modifier = modifier
+    ) {
         Box(
             modifier = Modifier
-                .size(10.dp) // Slightly larger
-                .clip(CircleShape)
-                .background(color)
+                .size(12.dp) // Increased from 10.dp
+                .background(color, CircleShape)
         )
-        Spacer(modifier = Modifier.width(8.dp)) // More spacing
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), // Darker text
+            fontSize = 12.sp, // Explicitly smaller to fit "Free Space"
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-    }
-}
-
-@Composable
-fun StorageProgressBar(info: StorageInfo) {
-    val totalStorage = info.totalBytes.toFloat().coerceAtLeast(1f)
-    
-    // Segments mapping
-    val imageSeg = info.imageBytes.toFloat() / totalStorage
-    val videoSeg = info.videoBytes.toFloat() / totalStorage
-    val audioSeg = info.audioBytes.toFloat() / totalStorage
-    val docSeg = info.documentBytes.toFloat() / totalStorage
-    val appSeg = info.appBytes.toFloat() / totalStorage
-    val otherSeg = info.otherBytes.toFloat() / totalStorage
-
-    // Use clip to ensure the whole bar has rounded corners, allowing segments to be simple Rects without gaps.
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(12.dp)
-            .clip(RoundedCornerShape(6.dp)) 
-            .background(MaterialTheme.colorScheme.surfaceVariant) // Track background
-    ) {
-        val width = size.width
-        val height = size.height
-
-        var currentX = 0f
-        
-        // Image
-        val w1 = width * imageSeg
-        if (w1 > 0) {
-            drawRect(
-                color = Color(0xFF6750a4), // Deep Purple
-                topLeft = Offset(currentX, 0f),
-                size = androidx.compose.ui.geometry.Size(w1, height)
-            )
-            currentX += w1
-        }
-        
-        // Video
-        val w2 = width * videoSeg
-        if (w2 > 0) {
-             drawRect(
-                color = Color(0xFF4285F4), // Blue
-                topLeft = Offset(currentX, 0f),
-                size = androidx.compose.ui.geometry.Size(w2, height)
-            )
-            currentX += w2
-        }
-
-        // Audio
-        val w3 = width * audioSeg
-        if (w3 > 0) {
-             drawRect(
-                color = Color(0xFF009688), // Teal
-                topLeft = Offset(currentX, 0f),
-                size = androidx.compose.ui.geometry.Size(w3, height)
-            )
-            currentX += w3
-        }
-
-        // Docs
-        val w4 = width * docSeg
-        if (w4 > 0) {
-             drawRect(
-                color = Color(0xFFFFC107), // Amber
-                topLeft = Offset(currentX, 0f),
-                size = androidx.compose.ui.geometry.Size(w4, height)
-            )
-            currentX += w4
-        }
-
-
-        // Apps
-        val w6 = width * appSeg
-        if (w6 > 0) {
-             drawRect(
-                color = Color(0xFF4CAF50), // Green
-                topLeft = Offset(currentX, 0f),
-                size = androidx.compose.ui.geometry.Size(w6, height)
-            )
-            currentX += w6
-        }
-
-        // Others
-        val w7 = width * otherSeg
-        if (w7 > 0) {
-             drawRect(
-                color = Color(0xFFe8b688), // Peach
-                topLeft = Offset(currentX, 0f),
-                size = androidx.compose.ui.geometry.Size(w7, height)
-            )
-            currentX += w7
-        }
-    }
-}
-
-
-@Composable
-fun SmartToolCard(
-    title: String,
-    subtitle: String,
-    icon: androidx.compose.ui.graphics.painter.Painter? = null,
-    iconVector: ImageVector? = null,
-    iconColor: Color,
-    hasNotification: Boolean = false,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.shadow(2.dp, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(iconColor.copy(alpha = 0.1f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (icon != null) {
-                        Icon(
-                            painter = icon,
-                            contentDescription = null,
-                            tint = iconColor,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    } else if (iconVector != null) {
-                        Icon(
-                            imageVector = iconVector,
-                            contentDescription = null,
-                            tint = iconColor,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            }
-
-            if (hasNotification) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp) // Closer to the corner
-                        .size(8.dp)
-                        .background(Color(0xFFFF5252), CircleShape)
-                )
-            }
-        }
     }
 }
 

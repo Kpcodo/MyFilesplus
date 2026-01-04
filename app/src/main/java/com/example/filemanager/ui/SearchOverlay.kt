@@ -1,6 +1,8 @@
 package com.example.filemanager.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -68,8 +70,8 @@ fun SearchOverlay(
 
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn(),
-        exit = fadeOut()
+        enter = fadeIn() + expandHorizontally(expandFrom = Alignment.CenterHorizontally),
+        exit = fadeOut() + shrinkHorizontally(shrinkTowards = Alignment.CenterHorizontally)
     ) {
         Box(
             modifier = Modifier

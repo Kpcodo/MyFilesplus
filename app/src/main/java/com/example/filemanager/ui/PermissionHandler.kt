@@ -27,8 +27,7 @@ import androidx.lifecycle.LifecycleEventObserver
  */
 @Composable
 fun AppPermissionHandler(
-    onPermissionGranted: @Composable () -> Unit,
-    onPermissionDenied: @Composable (missingPermission: PermissionType, requestPermission: () -> Unit) -> Unit
+    onPermissionGranted: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -54,50 +53,47 @@ fun AppPermissionHandler(
     if (hasStoragePermission && hasUsagePermission) {
         onPermissionGranted()
     } else {
-        if (!hasStoragePermission) {
+        // Show Onboarding Screen if any permission is missing
+        val requestStorage: () -> Unit = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                // Android 11+ Logic for Storage
-                val requestStorage: () -> Unit = {
-                    try {
-                        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                        intent.addCategory("android.intent.category.DEFAULT")
-                        intent.data = Uri.fromParts("package", context.packageName, null)
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
-                        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                        context.startActivity(intent)
-                    }
-                }
-                onPermissionDenied(PermissionType.STORAGE, requestStorage)
+                 try {
+                     val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                     intent.addCategory("android.intent.category.DEFAULT")
+                     intent.data = Uri.fromParts("package", context.packageName, null)
+                     context.startActivity(intent)
+                 } catch (_: Exception) {
+                     val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                     context.startActivity(intent)
+                 }
             } else {
-                // Android 10 Logic for Storage
-                val launcher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestMultiplePermissions()
-                ) { permissionResults ->
-                    hasStoragePermission = permissionResults.values.all { it }
-                }
-                
-                val requestStorage: () -> Unit = {
-                    launcher.launch(arrayOf(
-                        Manifest.permission.READ_EXTERNAL_STORAGE,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    ))
-                }
-                onPermissionDenied(PermissionType.STORAGE, requestStorage)
-            }
-        } else if (!hasUsagePermission) {
-             val requestUsage: () -> Unit = {
-                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                 intent.data = Uri.fromParts("package", context.packageName, null)
                  context.startActivity(intent)
-             }
-             onPermissionDenied(PermissionType.USAGE_STATS, requestUsage)
+            }
         }
+
+        val requestUsage: () -> Unit = {
+             val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+             context.startActivity(intent)
+        }
+
+        OnboardingScreen(
+            hasStoragePermission = hasStoragePermission,
+            hasUsagePermission = hasUsagePermission,
+            onRequestStorage = requestStorage,
+            onRequestUsage = requestUsage,
+            onContinue = {
+                // Double check permissions before proceeding
+                hasStoragePermission = checkStoragePermission(context)
+                hasUsagePermission = checkUsageStatsPermission(context)
+            }
+        )
     }
 }
 
-enum class PermissionType {
-    STORAGE,
-    USAGE_STATS
+enum class PermissionType(val displayName: String) {
+    STORAGE("Storage Access"),
+    USAGE_STATS("Usage Access")
 }
 
 private fun checkStoragePermission(context: Context): Boolean {

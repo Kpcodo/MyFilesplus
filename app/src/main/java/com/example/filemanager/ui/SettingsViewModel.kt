@@ -15,13 +15,13 @@ data class SettingsState(
     val accentColor: Int = 0xFF6650a4.toInt(),
     val iconSize: Float = 1.0f,
     val showHiddenFiles: Boolean = false,
-    val showFileExtensions: Boolean = true,
     val viewMode: Int = 0,
     val isBlurEnabled: Boolean = true,
     val isSwipeNavigationEnabled: Boolean = false,
     val swipeDeleteEnabled: Boolean = false,
     val swipeDeleteDirection: Int = 0, // 0=Left, 1=Right
-    val trashRetentionDays: Int = 30
+    val trashRetentionDays: Int = 30,
+    val animationSpeed: Float = 1.0f
 )
 
 class SettingsViewModel(private val repository: SettingsRepository) : ViewModel() {
@@ -30,10 +30,9 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         repository.themeMode,
         repository.accentColor,
         repository.iconSize,
-        repository.showHiddenFiles,
-        repository.showFileExtensions
-    ) { theme, accent, size, hidden, ext ->
-        SettingsState(theme, accent, size, hidden, ext)
+        repository.showHiddenFiles
+    ) { theme, accent, size, hidden ->
+        SettingsState(theme, accent, size, hidden)
     }.combine(repository.viewMode) { settings, view ->
         settings.copy(viewMode = view)
     }.combine(repository.searchBlurEnabled) { settings, blur ->
@@ -46,6 +45,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         settings.copy(swipeDeleteDirection = dir)
     }.combine(repository.trashRetentionDays) { settings, days ->
         settings.copy(trashRetentionDays = days)
+    }.combine(repository.animationSpeed) { settings, speed ->
+        settings.copy(animationSpeed = speed)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -82,15 +83,17 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         }
     }
 
-    fun toggleShowFileExtensions(show: Boolean) {
-        viewModelScope.launch {
-            repository.setShowFileExtensions(show)
-        }
-    }
+
 
     fun setViewMode(mode: Int) {
         viewModelScope.launch {
             repository.setViewMode(mode)
+        }
+    }
+
+    fun setAnimationSpeed(speed: Float) {
+        viewModelScope.launch {
+            repository.setAnimationSpeed(speed)
         }
     }
 
@@ -99,6 +102,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
             repository.setSearchBlurEnabled(enabled)
         }
     }
+
 
     fun toggleSwipeNavigation(enabled: Boolean) {
         viewModelScope.launch {

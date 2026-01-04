@@ -25,6 +25,13 @@ import android.os.UserHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+import kotlinx.coroutines.withContext
+
+data class StorageVolumeInfo(
+    val file: File,
+    val name: String
+)
+
 class FileRepository(private val context: Context) {
 
     suspend fun getFilesFromPath(path: String): List<FileModel> = withContext(Dispatchers.IO) {
@@ -52,24 +59,29 @@ class FileRepository(private val context: Context) {
     }
 
     suspend fun calculateStorageForecast(): String = withContext(Dispatchers.IO) {
-        val totalBytes = Environment.getExternalStorageDirectory().totalSpace
-        val freeBytes = Environment.getExternalStorageDirectory().freeSpace
+        try {
+            val totalBytes = Environment.getExternalStorageDirectory().totalSpace
+            val freeBytes = Environment.getExternalStorageDirectory().freeSpace
 
-        // Calculate usage in the last 30 days
-        val recentUsageBytes = getAverageDailyUsageBytes() * 30
+            // Calculate usage in the last 30 days
+            val recentUsageBytes = getAverageDailyUsageBytes() * 30
 
-        if (recentUsageBytes <= 0) return@withContext "Stable"
-        
-        val dailyRate = recentUsageBytes / 30f
-        if (dailyRate <= 0) return@withContext "Stable"
+            if (recentUsageBytes <= 0) return@withContext "Stable"
+            
+            val dailyRate = recentUsageBytes / 30f
+            if (dailyRate <= 0) return@withContext "Stable"
 
-        val daysUntilFull = (freeBytes / dailyRate).toLong()
+            val daysUntilFull = (freeBytes / dailyRate).toLong()
 
-        return@withContext when {
-            daysUntilFull < 1 -> "< 1 day"
-            daysUntilFull < 30 -> "Full in ~$daysUntilFull days"
-            daysUntilFull < 365 -> "Full in ~${daysUntilFull / 30} mo"
-            else -> "> 1 yr left"
+            return@withContext when {
+                daysUntilFull < 1 -> "< 1 day"
+                daysUntilFull < 30 -> "Full in ~$daysUntilFull days"
+                daysUntilFull < 365 -> "Full in ~${daysUntilFull / 30} mo"
+                else -> "> 1 yr left"
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext "Unknown"
         }
     }
     
@@ -93,6 +105,39 @@ class FileRepository(private val context: Context) {
 
     suspend fun restoreAllFiles(): Boolean = trashManager.restoreAll()
 
+    fun getExternalVolumes(): List<StorageVolumeInfo> {
+        val volumes = mutableListOf<StorageVolumeInfo>()
+        val storageManager = context.getSystemService(Context.STORAGE_SERVICE) as android.os.storage.StorageManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            storageManager.storageVolumes.forEach { volume ->
+                if (volume.isRemovable || !volume.isPrimary) {
+                    val dir = volume.directory
+                    if (dir != null && dir.exists() && dir.canRead()) {
+                        val name = volume.getDescription(context)
+                        volumes.add(StorageVolumeInfo(dir, name))
+                    }
+                }
+            }
+        } else {
+            storageManager.storageVolumes.forEach { volume ->
+                 if (volume.isRemovable || !volume.isPrimary) {
+                     val uuid = volume.uuid
+                     if (uuid != null) {
+                         val dir = File("/storage/$uuid")
+                         if (dir.exists() && dir.canRead()) {
+                             val name = volume.getDescription(context)
+                             volumes.add(StorageVolumeInfo(dir, name))
+                         }
+                     }
+                 }
+            }
+        }
+        
+        return volumes.distinctBy { it.file.absolutePath }
+    }
+
+    // Removed unused helper methods to keep code clean since we switched logic
     suspend fun deleteFilePermanently(trashedFile: TrashedFile): Boolean = trashManager.deletePermanently(trashedFile)
 
     suspend fun emptyTrash(): Boolean = trashManager.emptyTrash()
@@ -451,27 +496,33 @@ class FileRepository(private val context: Context) {
     }
 
     suspend fun getStorageInfo(): StorageInfo = withContext(Dispatchers.IO) {
-        val path = Environment.getExternalStorageDirectory()
-        val stat = StatFs(path.path)
-        val blockSize = stat.blockSizeLong
-        val totalBlocks = stat.blockCountLong
-        val availableBlocks = stat.availableBlocksLong
+        try {
+            val path = Environment.getExternalStorageDirectory()
+            val stat = StatFs(path.path)
+            val blockSize = stat.blockSizeLong
+            val totalBlocks = stat.blockCountLong
+            val availableBlocks = stat.availableBlocksLong
 
-        val totalBytes = totalBlocks * blockSize
-        val freeBytes = availableBlocks * blockSize
-        val usedBytes = totalBytes - freeBytes
+            val totalBytes = totalBlocks * blockSize
+            val freeBytes = availableBlocks * blockSize
+            val usedBytes = totalBytes - freeBytes
 
-        val imageBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE)
-        val videoBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
-        val audioBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO)
-        val documentBytes = getDocumentSize()
-        val appBytes = getAppSize()
-        val archiveBytes = getArchiveSize()
-        
-        val mediaSum = imageBytes + videoBytes + audioBytes + documentBytes + appBytes + archiveBytes
-        val otherBytes = if (usedBytes > mediaSum) usedBytes - mediaSum else 0L
+            val imageBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE)
+            val videoBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
+            val audioBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO)
+            val documentBytes = getDocumentSize()
+            val appBytes = getAppSize()
+            val archiveBytes = getArchiveSize()
+            
+            val mediaSum = imageBytes + videoBytes + audioBytes + documentBytes + appBytes + archiveBytes
+            val otherBytes = if (usedBytes > mediaSum) usedBytes - mediaSum else 0L
 
-        StorageInfo(totalBytes, freeBytes, usedBytes, imageBytes, videoBytes, audioBytes, documentBytes, appBytes, archiveBytes, otherBytes)
+            StorageInfo(totalBytes, freeBytes, usedBytes, imageBytes, videoBytes, audioBytes, documentBytes, appBytes, archiveBytes, otherBytes)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Return empty/zero info on error
+            StorageInfo(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        }
     }
 
     private fun getAppSize(): Long {
@@ -665,13 +716,18 @@ class FileRepository(private val context: Context) {
 
 
     fun hasUsageAccess(): Boolean {
-        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
-        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            appOps.unsafeCheckOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
-        } else {
-            appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+        return try {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            } else {
+                appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            }
+            mode == android.app.AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
-        return mode == android.app.AppOpsManager.MODE_ALLOWED
     }
 
     private fun getCategorySize(mediaType: Int): Long {

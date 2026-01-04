@@ -2,6 +2,7 @@ package com.example.filemanager.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import com.example.filemanager.ui.components.animateEnter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,10 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,7 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.filemanager.R
+
 import com.example.filemanager.data.FileType
 import com.example.filemanager.data.FileUtils
 import com.example.filemanager.data.StorageInfo
@@ -66,13 +64,10 @@ fun HomeScreen(
     onOtherStorageClick: () -> Unit,
     onViewAllClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onGhostFilesClick: () -> Unit,
     onForecastClick: () -> Unit
 ) {
     val storageInfo by viewModel.storageInfo.collectAsState()
     val trashSize by viewModel.trashSize.collectAsState()
-    val cacheSize by viewModel.cacheSize.collectAsState()
-    val emptyFoldersCount by viewModel.emptyFoldersCount.collectAsState()
     val forecastText by viewModel.forecastText.collectAsState()
 
 
@@ -122,21 +117,23 @@ fun HomeScreen(
 
             item {
                 storageInfo?.let {
-                    com.example.filemanager.ui.components.StorageDashboard(
-                        storageInfo = it,
-                        trashSize = trashSize,
-                        cacheSize = cacheSize,
-                        emptyFoldersCount = emptyFoldersCount,
-                        forecastText = forecastText,
-
-                        onFreeUpClick = {
-                            if (cacheSize > 0) {
-                                viewModel.cleanTemporaryFiles()
-                            }
-                        },
-                        onGhostFilesClick = onGhostFilesClick,
-                        onForecastClick = onForecastClick
-                    )
+                    // Parallax Effect
+                    // Since it's inside a LazyColumn, we can't easily get absolute scroll offset of the parent easily without nested scroll connection 
+                    // OR we can make it sticky or use a custom layout.
+                    // However, 'LazyColumn' doesn't support parallax out of the box for items.
+                    // A simple workaround for "Cinematic" feel is an entrance animation or just smooth scrolling which we have.
+                    // But to support "Parallax", we'd usually put this in a Box behind the list or use a CollapsingToolbar.
+                    // Given the request, let's add a subtle scale/fade based on its own visibility or just a cool entrance.
+                    // Let's use `animateEnter` here too for consistency first.
+                    
+                     Box(modifier = Modifier.animateEnter(delayMillis = 100)) {
+                        com.example.filemanager.ui.components.StorageDashboard(
+                            storageInfo = it,
+                            trashSize = trashSize,
+                            forecastText = forecastText,
+                            onForecastClick = onForecastClick
+                        )
+                    }
                 }
             }
 
@@ -344,23 +341,18 @@ fun AllStorageSection(
         Text("All Storage", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            val internalInfo = if (storageInfo != null) {
-                "${FileUtils.formatSize(storageInfo.usedBytes)}"
-            } else {
-                "..."
-            }
             StorageDeviceCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.PhoneAndroid,
                 name = "Internal Storage",
-                info = internalInfo,
+                info = "",
                 onClick = onInternalStorageClick
             )
             StorageDeviceCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.SdStorage,
                 name = "Other Storage",
-                info = "SD card, USB",
+                info = "",
                 onClick = onOtherStorageClick
             )
         }
@@ -395,7 +387,9 @@ fun StorageDeviceCard(
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(name, fontWeight = FontWeight.Bold)
-                Text(info, style = MaterialTheme.typography.labelSmall)
+                if (info.isNotBlank()) {
+                    Text(info, style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }

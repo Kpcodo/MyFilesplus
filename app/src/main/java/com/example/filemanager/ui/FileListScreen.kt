@@ -35,7 +35,8 @@ import com.example.filemanager.data.ClipboardOperation
 import com.example.filemanager.data.FileModel
 import com.example.filemanager.data.FileType
 import com.example.filemanager.data.FileUtils
-import com.example.filemanager.ui.components.FileItemMenu
+import com.example.filemanager.ui.components.InlineFileMenu
+
 
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.SwipeToDismissBox
@@ -43,6 +44,11 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
+import com.example.filemanager.ui.components.InlineFileMenu
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import com.example.filemanager.ui.components.bounceClick
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -329,104 +335,113 @@ fun DetailedFileItem(
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     var showMenu by remember { mutableStateOf(false) }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(backgroundColor)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.background),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                )
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (file.type == FileType.IMAGE || file.type == FileType.VIDEO || file.type == FileType.AUDIO) {
-                val imageModel = ContentUris.withAppendedId(
-                    MediaStore.Files.getContentUri("external"),
-                    file.id
-                )
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                if (file.type == FileType.IMAGE || file.type == FileType.VIDEO || file.type == FileType.AUDIO) {
+                    val imageModel = ContentUris.withAppendedId(
+                        MediaStore.Files.getContentUri("external"),
+                        file.id
+                    )
 
-                val errorIcon = when (file.type) {
-                    FileType.VIDEO -> Icons.Default.VideoFile
-                    FileType.AUDIO -> Icons.Default.MusicNote
-                    else -> Icons.Default.Description
-                }
-
-                SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(imageModel)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = file.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    loading = { CircularProgressIndicator(modifier = Modifier.size(24.dp)) },
-                    error = {
-                        Icon(
-                            imageVector = errorIcon,
-                            contentDescription = file.name,
-                            modifier = Modifier.size(32.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    val errorIcon = when (file.type) {
+                        FileType.VIDEO -> Icons.Default.VideoFile
+                        FileType.AUDIO -> Icons.Default.MusicNote
+                        else -> Icons.Default.Description
                     }
-                )
-            } else {
-                val icon = when (file.type) {
-                    FileType.ARCHIVE -> Icons.Default.FolderZip
-                    else -> Icons.Default.Description
+
+                    SubcomposeAsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(imageModel)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = file.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        loading = { CircularProgressIndicator(modifier = Modifier.size(24.dp)) },
+                        error = {
+                            Icon(
+                                imageVector = errorIcon,
+                                contentDescription = file.name,
+                                modifier = Modifier.size(32.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    )
+                } else {
+                    val icon = when (file.type) {
+                        FileType.ARCHIVE -> Icons.Default.FolderZip
+                        else -> Icons.Default.Description
+                    }
+                    Icon(icon, contentDescription = file.name, tint = MaterialTheme.colorScheme.primary)
                 }
-                Icon(icon, contentDescription = file.name, tint = MaterialTheme.colorScheme.primary)
             }
-        }
 
-        Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = file.name,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${FileUtils.formatSize(file.size)} • ${FileUtils.formatDate(file.dateModified)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = file.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${FileUtils.formatSize(file.size)} • ${FileUtils.formatDate(file.dateModified)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            if (selectionMode) {
+                 Checkbox(
+                     checked = isSelected, 
+                     onCheckedChange = { onClick() },
+                     modifier = Modifier.padding(start = 8.dp)
+                 )
+            } else {
+                IconButton(onClick = { showMenu = !showMenu }) {
+                     Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More Options",
+                        modifier = Modifier.bounceClick()
+                    )
+                }
+            }
         }
         
-        if (selectionMode) {
-             Checkbox(
-                 checked = isSelected, 
-                 onCheckedChange = { onClick() },
-                 modifier = Modifier.padding(start = 8.dp)
-             )
-        } else {
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More Options")
-                }
-                FileItemMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    onMove = { showMenu = false; onMenuAction("move") },
-                    onCopy = { showMenu = false; onMenuAction("copy") },
-                    onRename = { showMenu = false; onMenuAction("rename") },
-                    onDelete = if (allowDelete) { { showMenu = false; onMenuAction("delete") } } else null,
-                    onExtract = if (file.type == FileType.ARCHIVE) { { showMenu = false; onMenuAction("extract") } } else null,
-                    onInfo = { showMenu = false; onMenuAction("info") },
-                    onShare = { showMenu = false; onMenuAction("share") }
-                )
-            }
+        if (showMenu) {
+            InlineFileMenu(
+                onMove = { showMenu = false; onMenuAction("move") },
+                onCopy = { showMenu = false; onMenuAction("copy") },
+                onRename = { showMenu = false; onMenuAction("rename") },
+                onDelete = if (allowDelete) { { showMenu = false; onMenuAction("delete") } } else null,
+                onExtract = if (file.type == FileType.ARCHIVE) { { showMenu = false; onMenuAction("extract") } } else null,
+                onInfo = { onMenuAction("info"); showMenu = false },
+                onShare = { showMenu = false; onMenuAction("share") }
+            )
         }
     }
 }

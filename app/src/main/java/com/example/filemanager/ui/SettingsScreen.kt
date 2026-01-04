@@ -26,8 +26,11 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.remember
+import android.widget.Toast
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -131,6 +134,33 @@ fun SettingsScreen(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val speedLabel = when(state.animationSpeed) {
+                       0.5f -> "Slow (0.5x)"
+                       1.0f -> "Normal (1.0x)"
+                       1.5f -> "Fast (1.5x)"
+                       2.0f -> "Very Fast (2.0x)"
+                       else -> "${state.animationSpeed}x"
+                    }
+                    Text("Animation Speed: $speedLabel", style = MaterialTheme.typography.bodyMedium)
+                    if (state.animationSpeed != 1.0f) {
+                        IconButton(onClick = { viewModel.setAnimationSpeed(1.0f) }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Reset Speed")
+                        }
+                    }
+                }
+                Slider(
+                    value = state.animationSpeed,
+                    onValueChange = { viewModel.setAnimationSpeed(it) },
+                    valueRange = 0.1f..10.0f,
+                    steps = 98 // Approx steps for 0.1 increments: (10-0.1)/0.1 = 99
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
                 val isIconSizeEditable = state.viewMode == 0 || state.viewMode == 2 // List or Compact
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -211,17 +241,7 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Show File Extensions", style = MaterialTheme.typography.bodyLarge)
-                    Switch(
-                        checked = state.showFileExtensions,
-                        onCheckedChange = { viewModel.toggleShowFileExtensions(it) }
-                    )
-                }
+
 
 
             }
@@ -368,6 +388,47 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+            
+            HorizontalDivider()
+
+            // App Updates Section
+            SettingsSection(title = "App Updates") {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val packageInfo = remember(context) {
+                    try {
+                        context.packageManager.getPackageInfo(context.packageName, 0)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val versionName = packageInfo?.versionName ?: "Unknown"
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Current Version: $versionName", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Check for latest updates",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            Toast.makeText(context, "Checking for updates...", Toast.LENGTH_SHORT).show()
+                            // Mock delay and result
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                Toast.makeText(context, "You are up to date!", Toast.LENGTH_SHORT).show()
+                            }, 2000)
+                        }
+                    ) {
+                        Text("Check")
+                    }
                 }
             }
         }

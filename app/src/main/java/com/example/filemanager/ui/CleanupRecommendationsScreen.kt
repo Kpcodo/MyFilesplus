@@ -10,7 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FolderOpen
+
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +31,6 @@ fun CleanupRecommendationsScreen(
     onBack: () -> Unit
 ) {
     val largeFiles by viewModel.largeFiles.collectAsState()
-    val ghostFiles by viewModel.ghostFiles.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     // Selection state: Set of Strings (Paths)
@@ -62,17 +61,13 @@ fun CleanupRecommendationsScreen(
                 ExtendedFloatingActionButton(
                     onClick = {
                         // Delete logic
-                        // Split into files and folders
+                        // Only files (Large Files)
                         val filesToDelete = largeFiles.filter { it.path in selectedPaths }
-                        val foldersToDelete = ghostFiles.filter { it.path in selectedPaths }
                         
                         // Execute Deletions
                         if (filesToDelete.isNotEmpty()) {
                             // Convert FileModel to path list for deletion
                             viewModel.deleteMultipleFiles(filesToDelete.map { it.path }, "") // path arg ignored for simple delete
-                        }
-                        if (foldersToDelete.isNotEmpty()) {
-                             foldersToDelete.forEach { viewModel.deleteGhostFile(it) }
                         }
                         
                         selectedPaths.clear()
@@ -95,25 +90,7 @@ fun CleanupRecommendationsScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Section: Unused Files (Ghost Files)
-                if (ghostFiles.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Unused Files (Empty Folders)",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    items(ghostFiles) { file ->
-                        RecommendationItem(
-                            icon = Icons.Default.FolderOpen,
-                            title = file.name,
-                            subtitle = file.path,
-                            isSelected = selectedPaths.contains(file.path),
-                            onToggle = { toggleSelection(file.path) }
-                        )
-                    }
-                }
+                // Section: Unused Files (Ghost Files) REMOVED
 
                 // Section: Large Files
                 if (largeFiles.isNotEmpty()) {
@@ -136,7 +113,7 @@ fun CleanupRecommendationsScreen(
                     }
                 }
 
-                if (ghostFiles.isEmpty() && largeFiles.isEmpty()) {
+                if (largeFiles.isEmpty()) {
                     item {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                             Text("No recommendations found.", color = MaterialTheme.colorScheme.onSurfaceVariant)

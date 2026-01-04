@@ -18,29 +18,32 @@ class SettingsRepository(private val context: Context) {
     val swipeNavigationEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[SWIPE_NAVIGATION_ENABLED] ?: false }
 
+    val swipeDeleteEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[SWIPE_DELETE_ENABLED] ?: false }
+
+    val swipeDeleteDirection: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[SWIPE_DELETE_DIRECTION] ?: 0 } // Default 0 (Left)
+
     // Swipe to Delete - Recents
+    val trashRetentionDays: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[TRASH_RETENTION_DAYS] ?: 30 } // Default 30 days
+
+    val animationSpeed: Flow<Float> = context.dataStore.data
+        .map { preferences -> preferences[ANIMATION_SPEED] ?: 1.0f }
+
     companion object {
         val THEME_MODE = intPreferencesKey("theme_mode")
         val ACCENT_COLOR = intPreferencesKey("accent_color")
         val ICON_SIZE = floatPreferencesKey("icon_size")
         val SHOW_HIDDEN_FILES = booleanPreferencesKey("show_hidden_files")
-        val SHOW_FILE_EXTENSIONS = booleanPreferencesKey("show_file_extensions")
         val VIEW_MODE = intPreferencesKey("view_mode")
         val SEARCH_BLUR_ENABLED = booleanPreferencesKey("search_blur_enabled")
         val SWIPE_NAVIGATION_ENABLED = booleanPreferencesKey("swipe_navigation_enabled")
         val SWIPE_DELETE_ENABLED = booleanPreferencesKey("swipe_delete_enabled")
         val SWIPE_DELETE_DIRECTION = intPreferencesKey("swipe_delete_direction") // 0 = Left, 1 = Right
         val TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
+        val ANIMATION_SPEED = floatPreferencesKey("animation_speed")
     }
-
-    val swipeDeleteEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[SWIPE_DELETE_ENABLED] ?: false }
-
-    val swipeDeleteDirection: Flow<Int> = context.dataStore.data
-        .map { preferences -> preferences[SWIPE_DELETE_DIRECTION] ?: 0 } // Default 0 (Left)
-    
-    val trashRetentionDays: Flow<Int> = context.dataStore.data
-        .map { preferences -> preferences[TRASH_RETENTION_DAYS] ?: 30 } // Default 30 days
 
     val viewMode: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[VIEW_MODE] ?: 0 }
@@ -64,8 +67,7 @@ class SettingsRepository(private val context: Context) {
     val showHiddenFiles: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[SHOW_HIDDEN_FILES] ?: false }
 
-    val showFileExtensions: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[SHOW_FILE_EXTENSIONS] ?: true }
+
 
     val searchBlurEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[SEARCH_BLUR_ENABLED] ?: true }
@@ -98,11 +100,13 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
-    suspend fun setShowFileExtensions(show: Boolean) {
+    suspend fun setAnimationSpeed(speed: Float) {
         context.dataStore.edit { preferences ->
-            preferences[SHOW_FILE_EXTENSIONS] = show
+            preferences[ANIMATION_SPEED] = speed
         }
     }
+
+
     
     suspend fun setViewMode(mode: Int) {
         context.dataStore.edit { preferences ->
