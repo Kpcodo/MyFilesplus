@@ -47,7 +47,6 @@ android {
     }
 
     lint {
-        isOpen = false
         abortOnError = false
         checkReleaseBuilds = false
     }
