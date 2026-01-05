@@ -36,6 +36,7 @@ import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.data.FileType
 import com.mfp.filemanager.data.FileUtils
+import com.mfp.filemanager.ui.components.DetailedFileItem
 import com.mfp.filemanager.ui.components.InlineFileMenu
 
 
@@ -45,7 +46,7 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
-import com.mfp.filemanager.ui.components.InlineFileMenu
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -322,127 +323,3 @@ fun FileListScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun DetailedFileItem(
-    file: FileModel, 
-    isSelected: Boolean, 
-    selectionMode: Boolean, 
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onMenuAction: (String) -> Unit,
-    allowDelete: Boolean = true
-) {
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    var showMenu by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
-            .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick
-                )
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.background),
-                contentAlignment = Alignment.Center
-            ) {
-                if (file.type == FileType.IMAGE || file.type == FileType.VIDEO || file.type == FileType.AUDIO) {
-                    val imageModel = ContentUris.withAppendedId(
-                        MediaStore.Files.getContentUri("external"),
-                        file.id
-                    )
-
-                    val errorIcon = when (file.type) {
-                        FileType.VIDEO -> Icons.Default.VideoFile
-                        FileType.AUDIO -> Icons.Default.MusicNote
-                        else -> Icons.Default.Description
-                    }
-
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(imageModel)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = file.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        loading = { CircularProgressIndicator(modifier = Modifier.size(24.dp)) },
-                        error = {
-                            Icon(
-                                imageVector = errorIcon,
-                                contentDescription = file.name,
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    )
-                } else {
-                    val icon = when (file.type) {
-                        FileType.ARCHIVE -> Icons.Default.FolderZip
-                        else -> Icons.Default.Description
-                    }
-                    Icon(icon, contentDescription = file.name, tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = file.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "${FileUtils.formatSize(file.size)} • ${FileUtils.formatDate(file.dateModified)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            if (selectionMode) {
-                 Checkbox(
-                     checked = isSelected, 
-                     onCheckedChange = { onClick() },
-                     modifier = Modifier.padding(start = 8.dp)
-                 )
-            } else {
-                IconButton(onClick = { showMenu = !showMenu }) {
-                     Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More Options",
-                        modifier = Modifier.bounceClick()
-                    )
-                }
-            }
-        }
-        
-        if (showMenu) {
-            InlineFileMenu(
-                onMove = { showMenu = false; onMenuAction("move") },
-                onCopy = { showMenu = false; onMenuAction("copy") },
-                onRename = { showMenu = false; onMenuAction("rename") },
-                onDelete = if (allowDelete) { { showMenu = false; onMenuAction("delete") } } else null,
-                onExtract = if (file.type == FileType.ARCHIVE) { { showMenu = false; onMenuAction("extract") } } else null,
-                onInfo = { onMenuAction("info"); showMenu = false },
-                onShare = { showMenu = false; onMenuAction("share") }
-            )
-        }
-    }
-}

@@ -58,6 +58,7 @@ class FileRepository(private val context: Context) {
         }?.sortedWith(compareBy({ !it.isDirectory }, { it.name })) ?: emptyList()
     }
 
+    @Suppress("DEPRECATION")
     suspend fun calculateStorageForecast(): String = withContext(Dispatchers.IO) {
         try {
             val totalBytes = Environment.getExternalStorageDirectory().totalSpace
@@ -146,6 +147,7 @@ class FileRepository(private val context: Context) {
     
     suspend fun getTrashSize(): Long = trashManager.getTrashedFiles().sumOf { it.size }
 
+    @Suppress("DEPRECATION")
     suspend fun getEmptyFolders(): List<File> = withContext(Dispatchers.IO) {
         val root = Environment.getExternalStorageDirectory()
         val emptyFolders = mutableListOf<File>()
@@ -158,6 +160,7 @@ class FileRepository(private val context: Context) {
         emptyFolders
     }
 
+    @Suppress("DEPRECATION")
     suspend fun getJunkSize(): Long = withContext(Dispatchers.IO) {
         var size: Long = 0
         try {
@@ -171,6 +174,7 @@ class FileRepository(private val context: Context) {
         size
     }
 
+    @Suppress("DEPRECATION")
     suspend fun clearJunk(): Boolean = withContext(Dispatchers.IO) {
         try {
             val root = Environment.getExternalStorageDirectory()
@@ -277,7 +281,11 @@ class FileRepository(private val context: Context) {
         val selectionArgs = arrayOf(thresholdBytes.toString())
         val sortOrder = "${MediaStore.Files.FileColumns.SIZE} DESC"
         
-        val queryUri = MediaStore.Files.getContentUri("external")
+        val queryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Files.getContentUri("external")
+        }
         
         context.contentResolver.query(queryUri, projection, selection, selectionArgs, sortOrder)?.use { cursor ->
              files.addAll(mapCursorToFiles(cursor))
@@ -495,6 +503,7 @@ class FileRepository(private val context: Context) {
         archiveManager.extractArchive(File(sourcePath), File(destinationPath))
     }
 
+    @Suppress("DEPRECATION")
     suspend fun getStorageInfo(): StorageInfo = withContext(Dispatchers.IO) {
         try {
             val path = Environment.getExternalStorageDirectory()

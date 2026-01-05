@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
+import com.mfp.filemanager.ui.components.DetailedFileItem
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.data.FileUtils
 import java.io.File

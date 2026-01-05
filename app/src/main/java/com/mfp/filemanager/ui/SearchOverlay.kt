@@ -44,7 +44,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
-import com.mfp.filemanager.ui.screens.DetailedFileItem
+import com.mfp.filemanager.ui.components.DetailedFileItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

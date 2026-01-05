@@ -25,6 +25,7 @@ object FileUtils {
         return format.format(date)
     }
 
+    @Suppress("DEPRECATION")
     fun getInternalStoragePath(): String {
         return Environment.getExternalStorageDirectory().absolutePath
     }
