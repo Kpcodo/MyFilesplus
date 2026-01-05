@@ -1,9 +1,10 @@
 package com.mfp.filemanager.ui.screens
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
+
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.ui.animations.animateEnter
+import com.mfp.filemanager.ui.animations.bounceClick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -92,7 +93,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .clickable { viewModel.clearSearch(); onSearchClick() },
+                        .bounceClick(onClick = { viewModel.clearSearch(); onSearchClick() }),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest, // Dynamic
                     tonalElevation = 2.dp
@@ -310,8 +311,7 @@ data class CategoryItemData(val name: String, val icon: ImageVector, val type: F
 @Composable
 fun CategoryCard(item: CategoryItemData, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().bounceClick(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
@@ -370,14 +370,13 @@ fun StorageDeviceCard(
     onClick: () -> Unit,
     enabled: Boolean = true
 ) {
+    val containerColor = if (enabled) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
+
     Card(
-        onClick = onClick,
-        modifier = modifier,
-        enabled = enabled,
+        modifier = modifier.bounceClick(onClick = if (enabled) onClick else null),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
+            containerColor = containerColor
         )
     ) {
         Row(

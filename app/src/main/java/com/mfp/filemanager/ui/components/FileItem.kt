@@ -73,7 +73,7 @@ fun DetailedFileItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
+                .bounceClick(
                     onClick = onClick,
                     onLongClick = onLongClick
                 )

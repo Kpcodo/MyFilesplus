@@ -2,6 +2,8 @@ package com.mfp.filemanager.ui.animations
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,14 +22,20 @@ val LocalAnimationSpeed = compositionLocalOf { 1.0f }
 
 enum class ButtonState { Pressed, Idle }
 
+// Note: The manual pointerInput above for state might conflict with combinedClickable consuming events.
+// A better way for animation state is to hook into the InteractionSource of the clickable.
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun Modifier.bounceClick(
-    scaleDown: Float = 0.90f, // Less aggressive scale for smoother feel
-    onClick: (() -> Unit)? = null
+    scaleDown: Float = 0.90f,
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null
 ) = composed {
-    var buttonState by remember { mutableStateOf(ButtonState.Idle) }
-    // Use a high-stiffness spring for snappy feedback, unaffected by global speed for consistency
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
     val scale by animateFloatAsState(
-        targetValue = if (buttonState == ButtonState.Pressed) scaleDown else 1f,
+        targetValue = if (isPressed) scaleDown else 1f,
         animationSpec = androidx.compose.animation.core.spring(
             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
             stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
@@ -36,30 +44,39 @@ fun Modifier.bounceClick(
     )
 
     val view = androidx.compose.ui.platform.LocalView.current
+    
     this
         .graphicsLayer {
             scaleX = scale
             scaleY = scale
         }
-        .pointerInput(buttonState) {
-            awaitPointerEventScope {
-                buttonState = if (buttonState == ButtonState.Pressed) {
-                    waitForUpOrCancellation()
-                    ButtonState.Idle
-                } else {
-                    awaitFirstDown(false)
-                    ButtonState.Pressed
-                }
+        .then(
+            if (onLongClick != null) {
+                Modifier.combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {
+                         view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                         onClick?.invoke()
+                    },
+                    onLongClick = {
+                         view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                         onLongClick()
+                    }
+                )
+            } else if (onClick != null) {
+                Modifier.clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                        onClick()
+                    }
+                )
+            } else {
+                Modifier
             }
-        }
-        .then(if (onClick != null) Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null, // Disable default ripple to emphasize bounce
-            onClick = {
-                view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                onClick()
-            }
-        ) else Modifier)
+        )
 }
 
 fun Modifier.animateEnter(
