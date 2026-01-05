@@ -23,8 +23,8 @@ android {
         applicationId = "com.mfp.filemanager"
         minSdk = 26 
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.1.6"
+        versionCode = 5
+        versionName = "1.1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
