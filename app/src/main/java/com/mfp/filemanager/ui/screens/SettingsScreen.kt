@@ -376,7 +376,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val days = state.trashRetentionDays
-                    val presetValues = listOf(-1, 30, 180, 365)
+                    val presetValues = listOf(-1, 7, 30)
                     val isCustom = days !in presetValues
 
                     FilterChip(
@@ -386,22 +386,16 @@ fun SettingsScreen(
                         leadingIcon = if (days == -1) { { Icon(Icons.Default.Check, null) } } else null
                     )
                     FilterChip(
+                        selected = days == 7,
+                        onClick = { viewModel.setTrashRetentionDays(7) },
+                        label = { Text("1 Week") },
+                        leadingIcon = if (days == 7) { { Icon(Icons.Default.Check, null) } } else null
+                    )
+                    FilterChip(
                         selected = days == 30,
                         onClick = { viewModel.setTrashRetentionDays(30) },
                         label = { Text("1 Month") },
                         leadingIcon = if (days == 30) { { Icon(Icons.Default.Check, null) } } else null
-                    )
-                    FilterChip(
-                        selected = days == 180,
-                        onClick = { viewModel.setTrashRetentionDays(180) },
-                        label = { Text("6 Months") },
-                        leadingIcon = if (days == 180) { { Icon(Icons.Default.Check, null) } } else null
-                    )
-                    FilterChip(
-                        selected = days == 365,
-                        onClick = { viewModel.setTrashRetentionDays(365) },
-                        label = { Text("12 Months") },
-                        leadingIcon = if (days == 365) { { Icon(Icons.Default.Check, null) } } else null
                     )
                     FilterChip(
                         selected = isCustom,
@@ -411,7 +405,7 @@ fun SettingsScreen(
                     )
                 }
                 
-                if (state.trashRetentionDays != -1 && state.trashRetentionDays !in listOf(30, 180, 365)) {
+                if (state.trashRetentionDays != -1 && state.trashRetentionDays !in listOf(7, 30)) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         "Custom Duration: ${state.trashRetentionDays} days", 
