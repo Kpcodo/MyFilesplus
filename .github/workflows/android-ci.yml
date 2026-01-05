@@ -38,9 +38,9 @@ jobs:
           rm -rf $ANDROID_HOME/platforms/android-30
           
           # Remove older build-tools
-          rm -rf $ANDROID_HOME/build-tools/33*
-          rm -rf $ANDROID_HOME/build-tools/32*
-          rm -rf $ANDROID_HOME/build-tools/30*
+          # rm -rf $ANDROID_HOME/build-tools/33*
+          # rm -rf $ANDROID_HOME/build-tools/32*
+          # rm -rf $ANDROID_HOME/build-tools/30*
 
           echo "Disk Space after pruning:"
           df -h
