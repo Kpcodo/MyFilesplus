@@ -31,7 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
-import com.mfp.filemanager.data.ClipboardOperation
+import com.mfp.filemanager.data.clipboard.ClipboardOperation
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.data.FileType
@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import com.mfp.filemanager.ui.components.bounceClick
+import com.mfp.filemanager.ui.animations.bounceClick
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

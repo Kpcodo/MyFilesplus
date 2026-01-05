@@ -1,4 +1,4 @@
-package com.mfp.filemanager.ui
+package com.mfp.filemanager.security
 
 
 import android.Manifest

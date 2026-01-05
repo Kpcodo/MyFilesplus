@@ -1,4 +1,4 @@
-package com.mfp.filemanager.ui
+package com.mfp.filemanager.ui.search
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally

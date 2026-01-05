@@ -1,4 +1,5 @@
 package com.mfp.filemanager.ui.components
+import com.mfp.filemanager.ui.animations.bounceClick
 
 import android.content.ContentUris
 import android.provider.MediaStore

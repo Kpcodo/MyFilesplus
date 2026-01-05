@@ -84,7 +84,7 @@ import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import coil.request.CachePolicy
 import coil.size.Precision
-import com.mfp.filemanager.data.ClipboardOperation
+import com.mfp.filemanager.data.clipboard.ClipboardOperation
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.data.FileType
 import com.mfp.filemanager.data.FileUtils
@@ -93,8 +93,8 @@ import com.mfp.filemanager.ui.components.FileItemMenu
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import com.mfp.filemanager.ui.components.bounceClick
-import com.mfp.filemanager.ui.components.animateEnter
+import com.mfp.filemanager.ui.animations.bounceClick
+import com.mfp.filemanager.ui.animations.animateEnter
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.ui.SortType
 import com.mfp.filemanager.ui.SortOrder

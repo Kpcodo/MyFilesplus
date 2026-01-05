@@ -1,4 +1,4 @@
-package com.mfp.filemanager.ui.components
+package com.mfp.filemanager.ui.animations
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable

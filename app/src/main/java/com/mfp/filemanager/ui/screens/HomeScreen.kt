@@ -3,7 +3,7 @@ package com.mfp.filemanager.ui.screens
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
-import com.mfp.filemanager.ui.components.animateEnter
+import com.mfp.filemanager.ui.animations.animateEnter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement

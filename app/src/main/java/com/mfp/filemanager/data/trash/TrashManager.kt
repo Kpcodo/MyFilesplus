@@ -1,4 +1,5 @@
-package com.mfp.filemanager.data
+package com.mfp.filemanager.data.trash
+import com.mfp.filemanager.data.FileType
 
 import android.content.Context
 import android.util.Log

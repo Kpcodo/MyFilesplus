@@ -1,4 +1,4 @@
-package com.mfp.filemanager.data
+package com.mfp.filemanager.data.archive
 
 import org.apache.commons.compress.archivers.ArchiveEntry
 import org.apache.commons.compress.archivers.ArchiveInputStream

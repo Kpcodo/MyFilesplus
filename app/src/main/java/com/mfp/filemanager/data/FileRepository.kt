@@ -1,5 +1,9 @@
 package com.mfp.filemanager.data
 
+import com.mfp.filemanager.data.trash.TrashManager
+import com.mfp.filemanager.data.trash.TrashedFile
+import com.mfp.filemanager.data.archive.ArchiveManager
+
 import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.PackageManager

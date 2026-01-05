@@ -40,9 +40,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import com.mfp.filemanager.ui.components.bounceClick
+import com.mfp.filemanager.ui.animations.bounceClick
 import androidx.compose.runtime.CompositionLocalProvider
-import com.mfp.filemanager.ui.components.LocalAnimationSpeed
+import com.mfp.filemanager.ui.animations.LocalAnimationSpeed
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -71,8 +71,8 @@ import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModelFactory
 import com.mfp.filemanager.ui.screens.ImageViewerScreen
 import com.mfp.filemanager.ui.screens.RecentsScreen
-import com.mfp.filemanager.ui.AppPermissionHandler
-import com.mfp.filemanager.ui.PermissionType
+import com.mfp.filemanager.security.AppPermissionHandler
+import com.mfp.filemanager.security.PermissionType
 import com.mfp.filemanager.ui.theme.FileManagerTheme
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -274,7 +274,7 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
         }
 
         // Search Overlay
-        com.mfp.filemanager.ui.SearchOverlay(
+        com.mfp.filemanager.ui.search.SearchOverlay(
             viewModel = viewModel,
             isVisible = showSearchOverlay,
             onClose = { showSearchOverlay = false },

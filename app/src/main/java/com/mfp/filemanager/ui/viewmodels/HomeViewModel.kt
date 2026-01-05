@@ -3,7 +3,7 @@ package com.mfp.filemanager.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.mfp.filemanager.data.ClipboardOperation
+import com.mfp.filemanager.data.clipboard.ClipboardOperation
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.data.FileRepository
 import com.mfp.filemanager.data.FileType
@@ -11,7 +11,7 @@ import com.mfp.filemanager.data.FileUtils
 import com.mfp.filemanager.data.SettingsRepository
 import com.mfp.filemanager.data.StorageInfo
 import com.mfp.filemanager.data.StorageVolumeInfo
-import com.mfp.filemanager.data.TrashedFile
+import com.mfp.filemanager.data.trash.TrashedFile
 import com.mfp.filemanager.ui.SortType
 import com.mfp.filemanager.ui.SortOrder
 import com.mfp.filemanager.ui.ViewType
@@ -309,8 +309,8 @@ class HomeViewModel(
         }
     }
 
-    private val _trashedFiles = MutableStateFlow<List<com.mfp.filemanager.data.TrashedFile>>(emptyList())
-    val trashedFiles: StateFlow<List<com.mfp.filemanager.data.TrashedFile>> = _trashedFiles.asStateFlow()
+    private val _trashedFiles = MutableStateFlow<List<com.mfp.filemanager.data.trash.TrashedFile>>(emptyList())
+    val trashedFiles: StateFlow<List<com.mfp.filemanager.data.trash.TrashedFile>> = _trashedFiles.asStateFlow()
 
     fun loadTrashedFiles() {
         viewModelScope.launch {
@@ -318,7 +318,7 @@ class HomeViewModel(
         }
     }
 
-    fun restoreFiles(trashedFiles: List<com.mfp.filemanager.data.TrashedFile>) {
+    fun restoreFiles(trashedFiles: List<com.mfp.filemanager.data.trash.TrashedFile>) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -331,7 +331,7 @@ class HomeViewModel(
         }
     }
 
-    fun deleteFilesPermanently(trashedFiles: List<com.mfp.filemanager.data.TrashedFile>) {
+    fun deleteFilesPermanently(trashedFiles: List<com.mfp.filemanager.data.trash.TrashedFile>) {
         viewModelScope.launch {
             _isLoading.value = true
             try {

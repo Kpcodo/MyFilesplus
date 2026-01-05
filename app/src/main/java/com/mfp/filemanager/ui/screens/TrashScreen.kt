@@ -42,7 +42,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.mfp.filemanager.data.FileType
 import com.mfp.filemanager.data.FileUtils
-import com.mfp.filemanager.data.TrashedFile
+import com.mfp.filemanager.data.trash.TrashedFile
 
 private enum class DialogType {
     NONE,
