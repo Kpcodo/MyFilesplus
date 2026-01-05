@@ -304,23 +304,27 @@ fun AppNavigation(
     val context = LocalContext.current
     val settingsState by settingsViewModel.settingsState.collectAsState()
     
+    val animSpeed = LocalAnimationSpeed.current
+    val baseStiffness = Spring.StiffnessMediumLow
+    val effectiveStiffness = if (animSpeed > 0) baseStiffness * (animSpeed * animSpeed) else baseStiffness
+    
     NavHost(navController = navController, startDestination = "home", modifier = modifier) {
         composable(
             route = "home",
             enterTransition = {
                 val from = initialState.destination.route
                 if (from == "recents" || from == "trash" || from == "settings") {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
                 } else {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) // Fallback or distinct
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) // Fallback or distinct
                 }
             },
             exitTransition = {
                 val to = targetState.destination.route
                 if (to == "recents" || to == "trash" || to == "settings") {
-                     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
                 } else {
-                     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
                 }
             }
         ) {
@@ -362,17 +366,17 @@ fun AppNavigation(
             enterTransition = {
                 val from = initialState.destination.route
                 if (from == "trash" || from == "settings") {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
                 } else {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
                 }
             },
             exitTransition = {
                  val to = targetState.destination.route
                  if (to == "trash" || to == "settings") {
-                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
                  } else {
-                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
                  }
             }
         ) {
@@ -404,17 +408,17 @@ fun AppNavigation(
             enterTransition = {
                 val from = initialState.destination.route
                 if (from == "settings") {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
                 } else {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
                 }
             },
             exitTransition = {
                  val to = targetState.destination.route
                  if (to == "settings") {
-                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow))
+                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
                  } else {
-                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow))
+                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
                  }
             }
         ) {
@@ -446,10 +450,10 @@ fun AppNavigation(
 
         composable(
             route = "settings",
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) }
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) }
         ) {
             SettingsScreen(
                 viewModel = settingsViewModel,
@@ -461,10 +465,10 @@ fun AppNavigation(
         composable(
             route = "fileList/{type}",
             arguments = listOf(navArgument("type") { type = NavType.StringType }),
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) }
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) }
         ) { backStackEntry ->
             val typeName = backStackEntry.arguments?.getString("type")
             val type = runCatching { FileType.valueOf(typeName ?: "") }.getOrDefault(FileType.UNKNOWN)
@@ -490,10 +494,10 @@ fun AppNavigation(
                 navArgument("path") { type = NavType.StringType },
                 navArgument("title") { type = NavType.StringType; nullable = true; defaultValue = null }
             ),
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = Spring.StiffnessMediumLow)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = Spring.StiffnessMediumLow)) }
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) }
         ) { backStackEntry ->
             val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
             val path = URLDecoder.decode(encodedPath, "UTF-8")

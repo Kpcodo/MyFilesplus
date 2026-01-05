@@ -21,11 +21,19 @@ val LocalAnimationSpeed = compositionLocalOf { 1.0f }
 enum class ButtonState { Pressed, Idle }
 
 fun Modifier.bounceClick(
-    scaleDown: Float = 0.70f,
+    scaleDown: Float = 0.90f, // Less aggressive scale for smoother feel
     onClick: (() -> Unit)? = null
 ) = composed {
     var buttonState by remember { mutableStateOf(ButtonState.Idle) }
-    val scale by animateFloatAsState(if (buttonState == ButtonState.Pressed) scaleDown else 1f, label = "Bounce Animation")
+    // Use a high-stiffness spring for snappy feedback, unaffected by global speed for consistency
+    val scale by animateFloatAsState(
+        targetValue = if (buttonState == ButtonState.Pressed) scaleDown else 1f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+        ),
+        label = "Bounce Animation"
+    )
 
     val view = androidx.compose.ui.platform.LocalView.current
     this
@@ -44,10 +52,14 @@ fun Modifier.bounceClick(
                 }
             }
         }
-        .then(if (onClick != null) Modifier.clickable(onClick = { 
-            view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-            onClick() 
-        }) else Modifier)
+        .then(if (onClick != null) Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null, // Disable default ripple to emphasize bounce
+            onClick = {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                onClick()
+            }
+        ) else Modifier)
 }
 
 fun Modifier.animateEnter(
@@ -55,41 +67,39 @@ fun Modifier.animateEnter(
 ) = composed {
     var visible by remember { mutableStateOf(false) }
     val speed = LocalAnimationSpeed.current
-    // If speed is 0 or very fast, snap. But generally we multiply duration.
-    // Speed < 1.0 means slower (longer duration). Speed > 1.0 means faster (shorter duration).
-    // Actually, usually "Speed 2x" means twice as fast (half duration).
-    // Let's assume the value is a multiplier where 2.0 = 2x speed.
-    val durationMult = if (speed > 0) 1f / speed else 0f
+    
+    // Calculate stiffness based on speed preference. 
+    // Speed 1.0 = StiffnessLow (200f). 
+    // Higher speed = Higher stiffness (faster).
+    val baseStiffness = androidx.compose.animation.core.Spring.StiffnessLow
+    val effectiveStiffness = if (speed > 0) baseStiffness * (speed * speed) else baseStiffness
 
     val alpha by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = if (speed >= 10f) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(
-            durationMillis = (300 * durationMult).toInt(), 
-            delayMillis = (delayMillis * durationMult).toInt()
+        animationSpec = androidx.compose.animation.core.spring(
+            stiffness = effectiveStiffness
         ),
         label = "AlphaAnimation"
     )
+    
     val translationY by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (visible) 0f else 50f,
-        // Spring doesn't easily take duration, but stiffness affects speed. 
-        // Higher stiffness = faster.
-        // Let's adjust stiffness based on speed? Or just leave spring as is for "physics" feel 
-        // but maybe adjust damping if needed.
-        // However, if user wants "Fast", spring should be stiffer.
-        animationSpec = if (speed >= 10f) androidx.compose.animation.core.snap() else androidx.compose.animation.core.spring(
-            dampingRatio = 0.8f, 
-            stiffness = androidx.compose.animation.core.Spring.StiffnessLow * speed // Approximate scaling
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = 0.8f,
+            stiffness = effectiveStiffness
         ),
         label = "TranslationAnimation"
     )
 
     LaunchedEffect(Unit) {
+        if (delayMillis > 0) {
+            kotlinx.coroutines.delay(delayMillis.toLong())
+        }
         visible = true
     }
 
-    this
-        .graphicsLayer {
-            this.alpha = alpha
-            this.translationY = translationY
-        }
+    this.graphicsLayer {
+        this.alpha = alpha
+        this.translationY = translationY
+    }
 }
