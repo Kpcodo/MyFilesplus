@@ -51,6 +51,15 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+    applicationVariants.all {
+        outputs.all {
+            if (this is com.android.build.gradle.internal.api.ApkVariantOutputImpl) {
+                if (buildType.name == "release") {
+                    outputFileName = "MyFilesplus_x25.apk"
+                }
+            }
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
