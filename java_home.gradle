@@ -1,0 +1,21 @@
+
+tasks.register("generateKeystore") {
+    doLast {
+        def javaHome = org.gradle.internal.jvm.Jvm.current().getJavaHome()
+        // Handle Windows vs Linux paths if needed, but assuming Windows based on context
+        def keytoolName = System.getProperty("os.name").toLowerCase().contains("win") ? "keytool.exe" : "keytool"
+        def keytool = javaHome.toPath().resolve("bin/$keytoolName").toString()
+        
+        println("Found keytool at: $keytool")
+        
+        def keyStoreFile = project.file("app/release.jks")
+        if (keyStoreFile.exists()) {
+             println("Keystore already exists at ${keyStoreFile.absolutePath}")
+        } else {
+             project.exec {
+                 commandLine(keytool, "-genkeypair", "-v", "-keystore", keyStoreFile.absolutePath, "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000", "-alias", "key0", "-dname", "CN=FileManagerApp, OU=Development, O=Self, L=Unknown, S=Unknown, C=US", "-storepass", "password", "-keypass", "password")
+             }
+             println("Keystore generated successfully!")
+        }
+    }
+}
