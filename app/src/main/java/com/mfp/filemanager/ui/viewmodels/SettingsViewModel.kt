@@ -3,6 +3,7 @@ package com.mfp.filemanager.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.mfp.filemanager.data.GitHubCommit
 import com.mfp.filemanager.data.GitHubRelease
 import com.mfp.filemanager.data.SettingsRepository
 import io.ktor.client.HttpClient
@@ -15,7 +16,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import io.ktor.client.plugins.onDownload
+import io.ktor.client.plugins.HttpRedirect
 import java.io.File
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +39,8 @@ data class SettingsState(
     val swipeDeleteEnabled: Boolean = false,
     val swipeDeleteDirection: Int = 0, // 0=Left, 1=Right
     val trashRetentionDays: Int = 30,
-    val animationSpeed: Float = 1.0f
+    val animationSpeed: Float = 1.0f,
+    val autoUpdateEnabled: Boolean = false
 )
 
 sealed class UpdateCheckState {
@@ -59,23 +63,38 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 isLenient = true
             })
         }
+        install(HttpRedirect) {
+            checkHttpMethod = false
+            allowHttpsDowngrade = false
+        }
     }
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
     val updateState: StateFlow<UpdateCheckState> = _updateState.asStateFlow()
 
     // CONSTANTS
-    private val GITHUB_OWNER = "Kpcodo"
-    private val GITHUB_REPO = "MyFilesplus"
+    private val githubOwner = "Kpcodo"
+    private val githubRepo = "MyFilesplus"
 
-    fun checkForUpdates(currentVersion: String) {
+    fun checkForUpdates(currentVersion: String, isAutoCheck: Boolean = false) {
         viewModelScope.launch {
+            if (isAutoCheck) {
+                 // Logic to skip if checked recently is handled before calling this, 
+                 // BUT we should double check or just proceed. 
+                 // However, we want to update the LastUpdateCheckTime ONLY on success
+            }
+            
             _updateState.value = UpdateCheckState.Checking
             try {
                 // Using GitHub Public API - Rate limited to 60/hr/IP
-                val url = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
+                val url = "https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest"
                 val release: GitHubRelease = httpClient.get(url).body()
                 
+                // Update last check time
+                if (isAutoCheck) {
+                    repository.setLastUpdateCheckTime(System.currentTimeMillis())
+                }
+
                 // Simple version comparison: strict string equality or semantic versioning?
                 // For simplicity, we assume tag_name matches version name (e.g., "v1.0.0" vs "1.0.0")
                 // We'll strip 'v' prefix if present for robust comparison
@@ -84,13 +103,47 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
 
                 // A real semantic version comparison library is better, but this handles simple cases
                 if (remoteVersion != localVersion) {
+                    // Enrich with commits if body is null/empty
+                    if (release.body.isNullOrBlank()) {
+                         try {
+                              val commitsUrl = "https://api.github.com/repos/$githubOwner/$githubRepo/commits?sha=${release.tagName}&per_page=5"
+                              val commits: List<GitHubCommit> = httpClient.get(commitsUrl).body()
+                              release.relatedCommits = commits
+                         } catch (e: Exception) {
+                              e.printStackTrace()
+                         }
+                    }
                     _updateState.value = UpdateCheckState.UpdateAvailable(release)
                 } else {
-                    _updateState.value = UpdateCheckState.UpToDate
+                    // Only show "Up to date" if manually checked or if we want to inform user (rarely for auto)
+                    if (!isAutoCheck) {
+                        _updateState.value = UpdateCheckState.UpToDate
+                    } else {
+                        // For auto check, if up to date, go back to idle so we don't disturb user
+                        _updateState.value = UpdateCheckState.Idle
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                _updateState.value = UpdateCheckState.Error("Check failed: ${e.message}")
+                // Only show error if manual check
+                if (!isAutoCheck) {
+                     _updateState.value = UpdateCheckState.Error("Check failed: ${e.message}")
+                } else {
+                    _updateState.value = UpdateCheckState.Idle
+                }
+            }
+        }
+    }
+
+    fun checkAutoUpdate(currentVersion: String) {
+        viewModelScope.launch {
+            val enabled = repository.autoUpdateEnabled.first()
+            if (enabled) {
+                val lastCheck = repository.lastUpdateCheckTime.first()
+                val twentyFourHoursMs = 24 * 60 * 60 * 1000
+                if (System.currentTimeMillis() - lastCheck > twentyFourHoursMs) {
+                    checkForUpdates(currentVersion, isAutoCheck = true)
+                }
             }
         }
     }
@@ -166,6 +219,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         settings.copy(trashRetentionDays = days)
     }.combine(repository.animationSpeed) { settings, speed ->
         settings.copy(animationSpeed = speed)
+    }.combine(repository.autoUpdateEnabled) { settings, auto ->
+        settings.copy(autoUpdateEnabled = auto)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -241,6 +296,12 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun setTrashRetentionDays(days: Int) {
         viewModelScope.launch {
             repository.setTrashRetentionDays(days)
+        }
+    }
+
+    fun toggleAutoUpdateEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setAutoUpdateEnabled(enabled)
         }
     }
 

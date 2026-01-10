@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -31,6 +32,12 @@ class SettingsRepository(private val context: Context) {
     val animationSpeed: Flow<Float> = context.dataStore.data
         .map { preferences -> preferences[ANIMATION_SPEED] ?: 1.0f }
 
+    val autoUpdateEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[AUTO_UPDATE_ENABLED] ?: false }
+
+    val lastUpdateCheckTime: Flow<Long> = context.dataStore.data
+        .map { preferences -> preferences[LAST_UPDATE_CHECK_TIME] ?: 0L }
+
     companion object {
         val THEME_MODE = intPreferencesKey("theme_mode")
         val ACCENT_COLOR = intPreferencesKey("accent_color")
@@ -43,6 +50,8 @@ class SettingsRepository(private val context: Context) {
         val SWIPE_DELETE_DIRECTION = intPreferencesKey("swipe_delete_direction") // 0 = Left, 1 = Right
         val TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
         val ANIMATION_SPEED = floatPreferencesKey("animation_speed")
+        val AUTO_UPDATE_ENABLED = booleanPreferencesKey("auto_update_enabled")
+        val LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
     }
 
     val viewMode: Flow<Int> = context.dataStore.data
@@ -135,6 +144,18 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSwipeDeleteDirection(direction: Int) {
         context.dataStore.edit { preferences ->
             preferences[SWIPE_DELETE_DIRECTION] = direction
+        }
+    }
+
+    suspend fun setAutoUpdateEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_UPDATE_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setLastUpdateCheckTime(time: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_UPDATE_CHECK_TIME] = time
         }
     }
 }
