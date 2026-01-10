@@ -1,6 +1,7 @@
 package com.mfp.filemanager.data.trash
 import com.mfp.filemanager.data.FileType
 
+import android.content.Context
 import android.media.MediaScannerConnection
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken

@@ -200,6 +200,9 @@ fun FileListScreen(
                         viewModel.deleteFilesAndReloadCategory(selectedItems.toList(), fileType)
                         selectionMode = false
                         selectedItems = setOf()
+                    },
+                    onBatchRename = {
+                        // Batch rename not yet implemented for categories, but needed for compilation
                     }
                  )
             } else {
