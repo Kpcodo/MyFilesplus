@@ -1,8 +1,7 @@
 package com.mfp.filemanager.data.trash
 import com.mfp.filemanager.data.FileType
 
-import android.content.Context
-import android.util.Log
+import android.media.MediaScannerConnection
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -34,35 +33,44 @@ class TrashManager(private val context: Context) {
         try {
             if (file.renameTo(trashedFile)) {
                // Success on simple move
+               scanFile(file.absolutePath)
                saveMetadata(file, trashedFile)
                return@withContext true
             } else {
                 // Fallback: Copy to trash, then delete original
                 try {
-                    file.copyTo(trashedFile, overwrite = true)
+                    if (file.isDirectory) {
+                        file.copyRecursively(trashedFile, overwrite = true)
+                    } else {
+                        file.copyTo(trashedFile, overwrite = true)
+                    }
+                    
                     // Try standard delete
-                    if (file.delete()) {
+                    val deleted = if (file.isDirectory) file.deleteRecursively() else file.delete()
+                    
+                    if (deleted) {
+                        scanFile(file.absolutePath)
                         saveMetadata(file, trashedFile)
                         return@withContext true
                     } else {
-                         // Try ContentResolver delete (Force delete for media files)
-                        if (deleteViaContentResolver(file)) {
+                        // Try ContentResolver delete (Force delete for media files)
+                        if (!file.isDirectory && deleteViaContentResolver(file)) {
                              saveMetadata(file, trashedFile)
                              return@withContext true
                         }
                         
                         // Failed to delete original, rollback trash
-                        if (trashedFile.exists()) trashedFile.delete()
+                        if (trashedFile.exists()) trashedFile.deleteRecursively()
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                     if (trashedFile.exists()) trashedFile.delete()
+                    if (trashedFile.exists()) trashedFile.deleteRecursively()
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
             // Cleanup on error
-            if (trashedFile.exists()) trashedFile.delete()
+            if (trashedFile.exists()) trashedFile.deleteRecursively()
         }
         return@withContext false
     }
@@ -101,13 +109,21 @@ class TrashManager(private val context: Context) {
         }
 
         if (fileInTrash.renameTo(originalFile)) {
+            scanFile(originalFile.absolutePath)
             removeMetadata(trashedFile)
             return@withContext true
         } else {
              // Fallback for restore
              try {
-                fileInTrash.copyTo(originalFile, overwrite = true)
-                if (fileInTrash.delete()) {
+                val success = if (fileInTrash.isDirectory) {
+                    fileInTrash.copyRecursively(originalFile, overwrite = true)
+                } else {
+                    fileInTrash.copyTo(originalFile, overwrite = true)
+                    true
+                }
+                
+                if (success && fileInTrash.deleteRecursively()) {
+                     scanFile(originalFile.absolutePath)
                      removeMetadata(trashedFile)
                      return@withContext true
                 }
@@ -239,6 +255,14 @@ class TrashManager(private val context: Context) {
             name.endsWith(".zip", true) || name.endsWith(".rar", true) || name.endsWith(".7z", true) -> FileType.ARCHIVE
             name.endsWith(".pdf", true) || name.endsWith(".doc", true) || name.endsWith(".docx", true) || name.endsWith(".xls", true) || name.endsWith(".xlsx", true) || name.endsWith(".ppt", true) || name.endsWith(".pptx", true) || name.endsWith(".txt", true) -> FileType.DOCUMENT
             else -> FileType.UNKNOWN
+        }
+    }
+
+    private fun scanFile(path: String) {
+        try {
+            MediaScannerConnection.scanFile(context, arrayOf(path), null, null)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }

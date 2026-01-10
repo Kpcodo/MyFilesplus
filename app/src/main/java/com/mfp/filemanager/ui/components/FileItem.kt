@@ -62,6 +62,7 @@ fun DetailedFileItem(
 ) {
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     var showMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -99,23 +100,20 @@ fun DetailedFileItem(
                         else -> Icons.Default.Description
                     }
 
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(imageModel)
+                    val imageRequest = remember(file.id) {
+                        ImageRequest.Builder(context)
+                            .data(ContentUris.withAppendedId(MediaStore.Files.getContentUri("external"), file.id))
                             .crossfade(true)
-                            .build(),
+                            .build()
+                    }
+
+                    coil.compose.AsyncImage(
+                        model = imageRequest,
                         contentDescription = file.name,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
-                        loading = { CircularProgressIndicator(modifier = Modifier.size(24.dp)) },
-                        error = {
-                            Icon(
-                                imageVector = errorIcon,
-                                contentDescription = file.name,
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        placeholder = painterResource(id = android.R.drawable.ic_menu_gallery),
+                        error = painterResource(id = android.R.drawable.ic_menu_report_image)
                     )
                 } else {
                     val icon = when (file.type) {

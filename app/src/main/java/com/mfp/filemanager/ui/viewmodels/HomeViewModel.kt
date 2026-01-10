@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import java.io.File
 
 
@@ -110,8 +111,8 @@ class HomeViewModel(
             initialValue = ViewType.LIST
         )
 
-    private val _clipboardFile = MutableStateFlow<FileModel?>(null)
-    val clipboardFile: StateFlow<FileModel?> = _clipboardFile.asStateFlow()
+    private val _clipboardFiles = MutableStateFlow<List<FileModel>>(emptyList())
+    val clipboardFiles: StateFlow<List<FileModel>> = _clipboardFiles.asStateFlow()
 
     private val _clipboardOperation = MutableStateFlow<ClipboardOperation?>(null)
     val clipboardOperation: StateFlow<ClipboardOperation?> = _clipboardOperation.asStateFlow()
@@ -142,6 +143,24 @@ class HomeViewModel(
     private val _searchResults = MutableStateFlow<List<FileModel>>(emptyList())
     val searchResults: StateFlow<List<FileModel>> = _searchResults.asStateFlow()
 
+    data class SearchFilter(
+        val type: FileType? = null,
+        val minSize: Long? = null,
+        val maxDaysAgo: Int? = null
+    ) {
+        val isActive: Boolean get() = type != null || minSize != null || maxDaysAgo != null
+    }
+
+    private val _searchFilter = MutableStateFlow(SearchFilter())
+    val searchFilter: StateFlow<SearchFilter> = _searchFilter.asStateFlow()
+
+    fun updateSearchFilter(filter: SearchFilter) {
+        _searchFilter.value = filter
+        if (_searchQuery.value.isNotEmpty()) {
+            performSearch(_searchQuery.value)
+        }
+    }
+
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
         if (query.length >= 2) { // Debounce/Limit search triggers if needed, currently immediate
@@ -155,7 +174,13 @@ class HomeViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                _searchResults.value = repository.searchFiles(query)
+                val filter = _searchFilter.value
+                _searchResults.value = repository.searchFiles(
+                    query = query,
+                    fileType = filter.type,
+                    minSize = filter.minSize,
+                    maxDaysAgo = filter.maxDaysAgo
+                )
             } catch (e: Exception) {
                 e.printStackTrace()
                 showMessage("Search failed: ${e.message}")
@@ -233,8 +258,19 @@ class HomeViewModel(
 
     fun deleteFile(path: String, onFinished: () -> Unit) {
         viewModelScope.launch {
+            // Optimistic Update: Immediately remove from list if present
+            val currentFiles = _rawFiles.value
+            _rawFiles.value = currentFiles.filter { it.path != path }
+            sortFiles()
+            
             if (repository.deleteFile(path)) {
                 onFinished()
+                showMessage("Moved to Bin")
+            } else {
+                // Revert if failed
+                _rawFiles.value = currentFiles
+                sortFiles()
+                showMessage("Error: Could not delete item")
             }
         }
     }
@@ -242,10 +278,30 @@ class HomeViewModel(
     fun deleteMultipleFiles(paths: List<String>, currentPath: String) {
         viewModelScope.launch {
             _isLoading.value = true
+            val currentFiles = _rawFiles.value
             try {
-                paths.forEach { repository.deleteFile(it) }
-                loadFiles(currentPath) // Refresh the file list
+                // Optimistic update
+                _rawFiles.value = currentFiles.filter { it.path !in paths }
+                sortFiles()
+
+                var successCount = 0
+                paths.forEach { 
+                    if (repository.deleteFile(it)) successCount++ 
+                }
+                
+                // Refresh list eventually to be sure, but without loading spinner
+                _rawFiles.value = repository.getFilesFromPath(currentPath)
+                sortFiles()
+
+                if (successCount == paths.size) {
+                    showMessage("Deleted $successCount items")
+                } else {
+                    showMessage("Deleted $successCount/${paths.size} items")
+                }
             } catch (e: Exception) {
+                // Revert
+                _rawFiles.value = currentFiles
+                sortFiles()
                 showMessage("Error deleting files: ${e.message}")
             } finally {
                 _isLoading.value = false
@@ -365,38 +421,142 @@ class HomeViewModel(
     // loadStorageInfo replaced/moved to combine strongly with dashboard data
 
 
-    fun addToClipboard(file: FileModel, operation: ClipboardOperation) {
-        _clipboardFile.value = file
-        _clipboardOperation.value = operation
-        val opName = if (operation == ClipboardOperation.COPY) "Copied" else "Moved"
-        showMessage("$opName to clipboard. Go to destination and Paste.")
+    fun clearClipboard() {
+        _clipboardFiles.value = emptyList()
+        _clipboardOperation.value = null
     }
 
-    fun pasteFile(destinationPath: String, onComplete: () -> Unit) {
-        val fileToPaste = _clipboardFile.value ?: return
-        val operation = _clipboardOperation.value ?: return
+    fun addToClipboard(files: List<FileModel>, operation: ClipboardOperation) {
+        _clipboardFiles.value = files
+        _clipboardOperation.value = operation
+        val count = files.size
+        val message = if (operation == ClipboardOperation.COPY) {
+             "Added $count ${if (count == 1) "file" else "files"} to copy. Navigate to destination."
+        } else {
+             "Added $count ${if (count == 1) "file" else "files"} to move. Navigate to destination."
+        }
+        showMessage(message)
+    }
 
-        viewModelScope.launch {
+    fun addSingleToClipboard(file: FileModel, operation: ClipboardOperation) {
+        addToClipboard(listOf(file), operation)
+    }
+
+    sealed interface OperationProgressState {
+        object Idle : OperationProgressState
+        data class Active(
+            val file: FileModel,
+            val operation: ClipboardOperation,
+            val progress: Float, // 0f to 1f
+            val bytesTransferred: Long,
+            val totalBytes: Long,
+            val startTime: Long,
+            val speedBytesPerSec: Long,
+            val currentFileIndex: Int = 0,
+            val totalFiles: Int = 1
+        ) : OperationProgressState
+    }
+
+    private val _operationProgress = MutableStateFlow<OperationProgressState>(OperationProgressState.Idle)
+    val operationProgress: StateFlow<OperationProgressState> = _operationProgress.asStateFlow()
+
+    private var operationJob: kotlinx.coroutines.Job? = null
+
+    fun cancelOperation() {
+        operationJob?.cancel()
+        _operationProgress.value = OperationProgressState.Idle
+        _isLoading.value = false
+    }
+
+    fun pasteFile(destinationPath: String, onComplete: () -> Unit = {}) {
+        val filesToPaste = _clipboardFiles.value
+        android.util.Log.d("HomeViewModel", "pasteFile: destinationPath=$destinationPath, filesCount=${filesToPaste.size}")
+        if (filesToPaste.isEmpty()) {
+            android.util.Log.w("HomeViewModel", "pasteFile: No files in clipboard")
+            return
+        }
+        val operation = _clipboardOperation.value
+        android.util.Log.d("HomeViewModel", "pasteFile: operation=$operation")
+        if (operation == null) {
+            android.util.Log.w("HomeViewModel", "pasteFile: No operation set")
+            return
+        }
+        
+        if (_operationProgress.value is OperationProgressState.Active) {
+            android.util.Log.w("HomeViewModel", "pasteFile: Operation already in progress")
+            return
+        }
+
+        operationJob = viewModelScope.launch {
             _isLoading.value = true
-            val success = try {
-                when (operation) {
-                    ClipboardOperation.COPY -> repository.copyFile(fileToPaste.path, destinationPath)
-                    ClipboardOperation.MOVE -> repository.moveFile(fileToPaste.path, destinationPath)
+            val startTime = System.currentTimeMillis()
+            var totalBytesCopied = 0L
+            val totalBatchSize = filesToPaste.sumOf { it.size }
+            
+            var allSuccess = true
+            
+            filesToPaste.forEachIndexed { index, file ->
+                if (!isActive) return@forEachIndexed
+                
+                var lastUpdate = 0L
+                var fileBytesCopied = 0L
+                
+                val progressCallback: (Long, Long) -> Unit = { copied, total ->
+                    val now = System.currentTimeMillis()
+                    if (now - lastUpdate > 300) {
+                        fileBytesCopied = copied
+                        val overallCopied = totalBytesCopied + copied
+                        val elapsedSec = (now - startTime) / 1000f
+                        val speed = if (elapsedSec > 0) (overallCopied / elapsedSec).toLong() else 0L
+                        
+                        _operationProgress.value = OperationProgressState.Active(
+                            file = file,
+                            operation = operation,
+                            progress = if (totalBatchSize > 0) overallCopied.toFloat() / totalBatchSize else 0f,
+                            bytesTransferred = overallCopied,
+                            totalBytes = totalBatchSize,
+                            startTime = startTime,
+                            speedBytesPerSec = speed,
+                            currentFileIndex = index + 1,
+                            totalFiles = filesToPaste.size
+                        )
+                        lastUpdate = now
+                    }
                 }
-            } catch (_: Exception) {
-                false
+
+                val success = try {
+                    when (operation) {
+                        ClipboardOperation.COPY -> repository.copyFile(file.path, destinationPath, progressCallback)
+                        ClipboardOperation.MOVE -> repository.moveFile(file.path, destinationPath, progressCallback)
+                    }
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    false
+                }
+                
+                if (success) {
+                    totalBytesCopied += file.size
+                } else {
+                    allSuccess = false
+                }
             }
 
-            if (success) {
+            _operationProgress.value = OperationProgressState.Idle
+            
+            if (allSuccess) {
                 if (operation == ClipboardOperation.MOVE) {
-                    _clipboardFile.value = null
-                    _clipboardOperation.value = null
+                    clearClipboard()
                 }
                 loadFiles(destinationPath) 
                 onComplete()
-                showMessage("File pasted successfully")
+                showMessage("${if (operation == ClipboardOperation.COPY) "Copied" else "Moved"} ${filesToPaste.size} files successfully")
             } else {
-                showMessage("Failed to paste file")
+                if (isActive) {
+                    showMessage("Some files failed to transfer")
+                } else {
+                    showMessage("Operation cancelled")
+                }
+                loadFiles(destinationPath)
             }
             _isLoading.value = false
         }
@@ -407,6 +567,32 @@ class HomeViewModel(
             if (repository.renameFile(file.path, newName)) {
                 loadFiles(File(file.path).parent ?: "")
                 onSuccess()
+            }
+        }
+    }
+
+    fun renameMultipleFiles(files: List<FileModel>, baseName: String, onFinished: () -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                var successCount = 0
+                files.forEachIndexed { index, file ->
+                    val ext = file.name.substringAfterLast(".", "")
+                    val newName = if (ext.isNotEmpty()) {
+                        "$baseName (${index + 1}).$ext"
+                    } else {
+                        "$baseName (${index + 1})"
+                    }
+                    if (repository.renameFile(file.path, newName)) {
+                        successCount++
+                    }
+                }
+                showMessage("Renamed $successCount/${files.size} items")
+                onFinished()
+            } catch (e: Exception) {
+                showMessage("Error renaming: ${e.message}")
+            } finally {
+                _isLoading.value = false
             }
         }
     }

@@ -22,13 +22,10 @@ import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
+import android.media.MediaScannerConnection
 import android.app.usage.StorageStatsManager
-import android.app.usage.UsageStatsManager
 import android.os.Process
-import android.os.UserHandle
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-
 import kotlinx.coroutines.withContext
 
 data class StorageVolumeInfo(
@@ -156,7 +153,7 @@ class FileRepository(private val context: Context) {
         val root = Environment.getExternalStorageDirectory()
         val emptyFolders = mutableListOf<File>()
         try {
-            // Limited recursion depth or constrained scan to avoid performance issues
+            // Increased depth for more thorough cleanup
             scanForEmptyFolders(root, emptyFolders, 0)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -202,7 +199,7 @@ class FileRepository(private val context: Context) {
     }
 
     private fun scanForJunkFiles(directory: File, list: MutableList<File>, depth: Int) {
-        if (depth > 4) return // Limit depth
+        if (depth > 8) return // Increased depth
         val files = directory.listFiles() ?: return
 
         for (file in files) {
@@ -256,7 +253,7 @@ class FileRepository(private val context: Context) {
     }
 
     private fun scanForEmptyFolders(directory: File, list: MutableList<File>, depth: Int) {
-        if (depth > 3) return // Prevent deep scan for performance
+        if (depth > 10) return // Increased depth
         val files = directory.listFiles()
         if (files == null) return
 
@@ -342,11 +339,16 @@ class FileRepository(private val context: Context) {
             }
         }
         
-        // Filter out OTHERS and UNKNOWN types, then take the requested limit
-        return@withContext files.filter { it.type != FileType.OTHERS && it.type != FileType.UNKNOWN }.take(limit)
+        // Filter out very small/empty system files if needed, but show OTHERS/UNKNOWN if they exist
+        return@withContext files.filter { it.size > 0 && !it.name.startsWith(".") }.take(limit)
     }
 
-    suspend fun searchFiles(query: String): List<FileModel> = withContext(Dispatchers.IO) {
+    suspend fun searchFiles(
+        query: String,
+        fileType: FileType? = null,
+        minSize: Long? = null,
+        maxDaysAgo: Int? = null
+    ): List<FileModel> = withContext(Dispatchers.IO) {
         val files = mutableListOf<FileModel>()
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
@@ -365,10 +367,33 @@ class FileRepository(private val context: Context) {
             MediaStore.Files.getContentUri("external")
         }
 
-        val selection = "${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?"
-        val selectionArgs = arrayOf("%$query%")
+        var selection = "${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?"
+        val selectionArgs = mutableListOf("%$query%")
 
-        context.contentResolver.query(queryUri, projection, selection, selectionArgs, sortOrder)?.use { cursor ->
+        if (fileType != null && fileType != FileType.UNKNOWN && fileType != FileType.OTHERS) {
+            val (typeSelection, typeArgs) = getSelectionForCategory(fileType)
+            selection += " AND $typeSelection"
+            typeArgs?.let { selectionArgs.addAll(it) }
+        }
+
+        if (minSize != null && minSize > 0) {
+            selection += " AND ${MediaStore.Files.FileColumns.SIZE} >= ?"
+            selectionArgs.add(minSize.toString())
+        }
+
+        if (maxDaysAgo != null && maxDaysAgo > 0) {
+            val timeThreshold = (System.currentTimeMillis() - (maxDaysAgo.toLong() * 24 * 60 * 60 * 1000)) / 1000
+            selection += " AND ${MediaStore.Files.FileColumns.DATE_MODIFIED} >= ?"
+            selectionArgs.add(timeThreshold.toString())
+        }
+
+        context.contentResolver.query(
+            queryUri, 
+            projection, 
+            selection, 
+            selectionArgs.toTypedArray(), 
+            sortOrder
+        )?.use { cursor ->
             files.addAll(mapCursorToFiles(cursor))
         }
         
@@ -657,48 +682,189 @@ class FileRepository(private val context: Context) {
             val file = File(path)
             val newFile = File(file.parent, newName)
             if (newFile.exists()) return@withContext false
-            return@withContext file.renameTo(newFile)
+            val success = file.renameTo(newFile)
+            if (success) {
+                scanFile(path) // Notify old path is gone
+                scanFile(newFile.absolutePath) // Notify new path exists
+            }
+            return@withContext success
         } catch (e: Exception) {
             e.printStackTrace()
             return@withContext false
         }
     }
 
-    suspend fun copyFile(sourcePath: String, destPath: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun copyFile(sourcePath: String, destPath: String, onProgress: ((Long, Long) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
         try {
+            android.util.Log.d("FileRepository", "copyFile: source=$sourcePath, dest=$destPath")
             val sourceFile = File(sourcePath)
-            val destFile = File(destPath, sourceFile.name)
-            if (destFile.exists()) return@withContext false // Or handle overwrite/rename
             
-            sourceFile.inputStream().use { input ->
-                destFile.outputStream().use { output ->
-                    input.copyTo(output)
+            if (!sourceFile.exists()) {
+                android.util.Log.e("FileRepository", "copyFile: Source file does not exist: $sourcePath")
+                return@withContext false
+            }
+            
+            var destFile = File(destPath, sourceFile.name)
+            android.util.Log.d("FileRepository", "copyFile: Initial destFile=${destFile.absolutePath}")
+            
+            // Auto-rename if exists
+            var counter = 1
+            val nameWithoutExt = sourceFile.nameWithoutExtension
+            val ext = sourceFile.extension.let { if (it.isNotEmpty()) ".$it" else "" }
+            
+            while (destFile.exists()) {
+                destFile = File(destPath, "$nameWithoutExt ($counter)$ext")
+                counter++
+            }
+            
+            android.util.Log.d("FileRepository", "copyFile: Final destFile=${destFile.absolutePath}, isDirectory=${sourceFile.isDirectory}")
+            
+            if (sourceFile.isDirectory) {
+                // Handle directory copying
+                return@withContext copyDirectory(sourceFile, destFile, onProgress)
+            } else {
+                // Handle single file copying
+                val totalSize = sourceFile.length()
+                var bytesCopied = 0L
+                val buffer = ByteArray(256 * 1024) // 256KB buffer
+                
+                sourceFile.inputStream().use { input ->
+                    destFile.outputStream().use { output ->
+                        var bytes = input.read(buffer)
+                        while (bytes >= 0) {
+                            output.write(buffer, 0, bytes)
+                            bytesCopied += bytes
+                            onProgress?.invoke(bytesCopied, totalSize)
+                            bytes = input.read(buffer)
+                        }
+                    }
+                }
+                
+                val success = true
+                scanFile(destFile.absolutePath)
+                android.util.Log.d("FileRepository", "copyFile: Success! Copied $bytesCopied bytes")
+                return@withContext success
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FileRepository", "copyFile: Exception", e)
+            e.printStackTrace()
+            return@withContext false
+        }
+    }
+    
+    private suspend fun copyDirectory(sourceDir: File, destDir: File, onProgress: ((Long, Long) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            android.util.Log.d("FileRepository", "copyDirectory: ${sourceDir.absolutePath} -> ${destDir.absolutePath}")
+            
+            // Calculate total size for progress reporting
+            val totalSize = calculateDirectorySize(sourceDir)
+            var bytesCopied = 0L
+            
+            android.util.Log.d("FileRepository", "copyDirectory: Total size = $totalSize bytes")
+            
+            // Create destination directory
+            if (!destDir.mkdirs() && !destDir.exists()) {
+                android.util.Log.e("FileRepository", "copyDirectory: Failed to create destination directory")
+                return@withContext false
+            }
+            
+            // Copy all files and subdirectories
+            val result = copyDirectoryContents(sourceDir, destDir) { copiedBytes ->
+                bytesCopied += copiedBytes
+                onProgress?.invoke(bytesCopied, totalSize)
+            }
+            
+            if (result) {
+                scanFile(destDir.absolutePath)
+                android.util.Log.d("FileRepository", "copyDirectory: Success! Copied $bytesCopied bytes")
+            }
+            
+            return@withContext result
+        } catch (e: Exception) {
+            android.util.Log.e("FileRepository", "copyDirectory: Exception", e)
+            e.printStackTrace()
+            return@withContext false
+        }
+    }
+    
+    private suspend fun copyDirectoryContents(sourceDir: File, destDir: File, onBytesWritten: (Long) -> Unit): Boolean = withContext(Dispatchers.IO) {
+        val children = sourceDir.listFiles() ?: return@withContext false
+        
+        for (child in children) {
+            val destChild = File(destDir, child.name)
+            
+            if (child.isDirectory) {
+                // Recursively copy subdirectory
+                if (!destChild.mkdirs() && !destChild.exists()) {
+                    return@withContext false
+                }
+                if (!copyDirectoryContents(child, destChild, onBytesWritten)) {
+                    return@withContext false
+                }
+            } else {
+                // Copy file
+                val buffer = ByteArray(256 * 1024)
+                child.inputStream().use { input ->
+                    destChild.outputStream().use { output ->
+                        var bytes = input.read(buffer)
+                        while (bytes >= 0) {
+                            output.write(buffer, 0, bytes)
+                            onBytesWritten(bytes.toLong())
+                            bytes = input.read(buffer)
+                        }
+                    }
                 }
             }
-            return@withContext true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return@withContext false
         }
+        
+        return@withContext true
+    }
+    
+    private fun calculateDirectorySize(dir: File): Long {
+        var size = 0L
+        val files = dir.listFiles() ?: return 0L
+        
+        for (file in files) {
+            size += if (file.isDirectory) {
+                calculateDirectorySize(file)
+            } else {
+                file.length()
+            }
+        }
+        
+        return size
     }
 
-    suspend fun moveFile(sourcePath: String, destPath: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun moveFile(sourcePath: String, destPath: String, onProgress: ((Long, Long) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             val sourceFile = File(sourcePath)
-            val destFile = File(destPath, sourceFile.name)
-            if (destFile.exists()) return@withContext false
+            var destFile = File(destPath, sourceFile.name)
+
+            // Auto-rename logic for Move as well
+            var counter = 1
+            val nameWithoutExt = sourceFile.nameWithoutExtension
+            val ext = sourceFile.extension.let { if (it.isNotEmpty()) ".$it" else "" }
             
-            // Try atomic move first
+            while (destFile.exists()) {
+                destFile = File(destPath, "$nameWithoutExt ($counter)$ext")
+                counter++
+            }
+            
+            // Try atomic move first (fast move on same filesystem)
             if (sourceFile.renameTo(destFile)) {
+                scanFile(sourcePath)
+                scanFile(destFile.absolutePath)
+                onProgress?.invoke(sourceFile.length(), sourceFile.length()) // Instant 100%
                 return@withContext true
             }
 
             // Fallback to Copy-Delete
-            if (copyFile(sourcePath, destPath)) {
-                // Determine if we should delete strictly or via repository.
-                // For a move operation, we simply want the source gone. 
-                // bypassing TrashManager to avoid cluttering trash with moved files.
-                return@withContext sourceFile.deleteRecursively()
+            if (copyFile(sourcePath, destPath, onProgress)) {
+                val deleted = sourceFile.deleteRecursively()
+                if (deleted) {
+                    scanFile(sourcePath)
+                }
+                return@withContext deleted
             }
             return@withContext false
 
@@ -765,5 +931,15 @@ class FileRepository(private val context: Context) {
             e.printStackTrace()
         }
         return size
+    }
+
+    private fun scanFile(path: String) {
+        try {
+            MediaScannerConnection.scanFile(context, arrayOf(path), null) { p, uri ->
+                android.util.Log.d("FileRepository", "Scanned $p: $uri")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

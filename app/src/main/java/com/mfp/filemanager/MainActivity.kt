@@ -70,6 +70,7 @@ import com.mfp.filemanager.ui.screens.HomeScreen
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModelFactory
 import com.mfp.filemanager.ui.screens.ImageViewerScreen
+import com.mfp.filemanager.ui.screens.TextViewerScreen
 import com.mfp.filemanager.ui.screens.RecentsScreen
 import com.mfp.filemanager.security.AppPermissionHandler
 import com.mfp.filemanager.security.PermissionType
@@ -158,11 +159,11 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
              Modifier
         }
         
-        // Simplify logic: if showing search AND blur enabled -> Blur. Else -> Empty Modifier.
-        val effectiveBlur = if (showSearchOverlay && settingsState.isBlurEnabled) Modifier.blur(30.dp) else Modifier
+        // Reduce blur radius for performance. Modifier.blur handles API 31+ compatibility.
+        val effectiveBlur = if (showSearchOverlay && settingsState.isBlurEnabled) Modifier.blur(16.dp) else Modifier
 
         Scaffold(
-            modifier = Modifier.then(effectiveBlur),
+            modifier = Modifier.fillMaxSize().then(effectiveBlur),
             topBar = {
                 // If Swipe Navigation is enabled, Show a Global Top Bar
                 if (settingsState.isSwipeNavigationEnabled) {
@@ -284,6 +285,9 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
                 if (file.type == FileType.IMAGE) {
                     val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                     navController.navigate("image_viewer/$encodedPath")
+                } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
+                    val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                    navController.navigate("text_viewer/$encodedPath")
                 } else {
                     com.mfp.filemanager.data.FileUtils.openFile(context, file)
                 }
@@ -305,7 +309,8 @@ fun AppNavigation(
     val settingsState by settingsViewModel.settingsState.collectAsState()
     
     val animSpeed = LocalAnimationSpeed.current
-    val baseStiffness = Spring.StiffnessMediumLow
+    // Increase base stiffness from 400 to 800 for snappier, more stable transitions
+    val baseStiffness = 800f 
     val effectiveStiffness = if (animSpeed > 0) baseStiffness * (animSpeed * animSpeed) else baseStiffness
     
     NavHost(navController = navController, startDestination = "home", modifier = modifier) {
@@ -389,6 +394,9 @@ fun AppNavigation(
                     if (file.type == FileType.IMAGE) {
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                         navController.navigate("image_viewer/$encodedPath")
+                    } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
+                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                        navController.navigate("text_viewer/$encodedPath")
                     } else {
                         com.mfp.filemanager.data.FileUtils.openFile(context, file)
                     }
@@ -480,6 +488,9 @@ fun AppNavigation(
                     if (file.type == FileType.IMAGE) {
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                         navController.navigate("image_viewer/$encodedPath")
+                    } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
+                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                        navController.navigate("text_viewer/$encodedPath")
                     } else {
                         com.mfp.filemanager.data.FileUtils.openFile(context, file)
                     }
@@ -524,6 +535,9 @@ fun AppNavigation(
                         if (file.type == FileType.IMAGE) {
                             val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                             navController.navigate("image_viewer/$encodedPath")
+                        } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
+                            val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                            navController.navigate("text_viewer/$encodedPath")
                         } else {
                             com.mfp.filemanager.data.FileUtils.openFile(context, file)
                         }
@@ -545,6 +559,18 @@ fun AppNavigation(
             val path = URLDecoder.decode(encodedPath, "UTF-8")
             ImageViewerScreen(
                 viewModel = viewModel,
+                path = path,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "text_viewer/{path}",
+            arguments = listOf(navArgument("path") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
+            val path = URLDecoder.decode(encodedPath, "UTF-8")
+            TextViewerScreen(
                 path = path,
                 onBack = { navController.popBackStack() }
             )

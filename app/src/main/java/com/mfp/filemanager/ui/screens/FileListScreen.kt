@@ -15,12 +15,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -182,6 +184,18 @@ fun FileListScreen(
                             files.map { it.path }.toSet()
                         }
                     },
+                    onCopy = {
+                        val selectedFiles = files.filter { it.path in selectedItems }
+                        viewModel.addToClipboard(selectedFiles, ClipboardOperation.COPY)
+                        selectionMode = false
+                        selectedItems = setOf()
+                    },
+                    onMove = {
+                        val selectedFiles = files.filter { it.path in selectedItems }
+                        viewModel.addToClipboard(selectedFiles, ClipboardOperation.MOVE)
+                        selectionMode = false
+                        selectedItems = setOf()
+                    },
                     onDelete = {
                         viewModel.deleteFilesAndReloadCategory(selectedItems.toList(), fileType)
                         selectionMode = false
@@ -210,19 +224,23 @@ fun FileListScreen(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = isLoading,
-            onRefresh = { viewModel.loadFilesByCategory(fileType) },
-            modifier = Modifier.padding(paddingValues)
-        ) {
+        val operationProgress by viewModel.operationProgress.collectAsState()
+        
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            PullToRefreshBox(
+                isRefreshing = isLoading,
+                onRefresh = { viewModel.loadFilesByCategory(fileType) },
+                modifier = Modifier.fillMaxSize()
+            ) {
+             // ... content ... 
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading && files.isEmpty()) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 } else {
                     val onMenuAction: (FileModel, String) -> Unit = { file, action ->
                         when (action) {
-                            "move" -> viewModel.addToClipboard(file, ClipboardOperation.MOVE)
-                            "copy" -> viewModel.addToClipboard(file, ClipboardOperation.COPY)
+                            "move" -> viewModel.addSingleToClipboard(file, ClipboardOperation.MOVE)
+                            "copy" -> viewModel.addSingleToClipboard(file, ClipboardOperation.COPY)
                             "rename" -> showRenameDialog = file
                             "delete" -> viewModel.deleteFilesAndReloadCategory(listOf(file.path), fileType)
                             "extract" -> showExtractDialog = file
@@ -242,9 +260,10 @@ fun FileListScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(vertical = 16.dp)
+                        contentPadding = PaddingValues(vertical = 16.dp, horizontal = 0.dp) // Reset horizontal padding from Box
                     ) {
                         items(files, key = { it.id }) { file ->
+                             // ... existing swipe delete item code ...
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { value ->
                                     if (!swipeDeleteEnabled) return@rememberSwipeToDismissBoxState false
@@ -317,6 +336,25 @@ fun FileListScreen(
                             }
                         }
                     }
+                }
+            }
+            }
+            
+            if (operationProgress is com.mfp.filemanager.ui.viewmodels.HomeViewModel.OperationProgressState.Active) {
+                val state = operationProgress as com.mfp.filemanager.ui.viewmodels.HomeViewModel.OperationProgressState.Active
+                val title = if (state.operation == ClipboardOperation.COPY) {
+                    "Copying ${state.currentFileIndex}/${state.totalFiles}: ${state.file.name}"
+                } else {
+                    "Moving ${state.currentFileIndex}/${state.totalFiles}: ${state.file.name}"
+                }
+                
+                Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                    com.mfp.filemanager.ui.components.OperationProgressCard(
+                        operationTitle = title,
+                        speed = "${FileUtils.formatSize(state.speedBytesPerSec)}/s",
+                        progress = state.progress,
+                        onCancel = { viewModel.cancelOperation() }
+                    )
                 }
             }
         }

@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.ui.components.DetailedFileItem
+import com.mfp.filemanager.data.clipboard.ClipboardOperation
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.data.FileUtils
 import java.io.File
@@ -196,7 +197,13 @@ fun RecentsScreen(
                                                     selectionMode = false,
                                                     onClick = { onFileClick(file) },
                                                     onLongClick = { /* Optional */ },
-                                                    onMenuAction = { /* Optional */ },
+                                                    onMenuAction = { action -> 
+                                                        when (action) {
+                                                            "move" -> viewModel.addSingleToClipboard(file, ClipboardOperation.MOVE)
+                                                            "copy" -> viewModel.addSingleToClipboard(file, ClipboardOperation.COPY)
+                                                            "extract" -> viewModel.extractFile(file) { viewModel.loadRecentFiles() }
+                                                        }
+                                                    },
                                                     allowDelete = false
                                                 )
                                             }
@@ -211,7 +218,13 @@ fun RecentsScreen(
                                             selectionMode = false,
                                             onClick = { onFileClick(file) },
                                             onLongClick = { /* Optional */ },
-                                            onMenuAction = { /* Optional */ }
+                                            onMenuAction = { action -> 
+                                                when (action) {
+                                                    "move" -> viewModel.addSingleToClipboard(file, ClipboardOperation.MOVE)
+                                                    "copy" -> viewModel.addSingleToClipboard(file, ClipboardOperation.COPY)
+                                                    "extract" -> viewModel.extractFile(file) { viewModel.loadRecentFiles() }
+                                                }
+                                            }
                                         )
                                     }
                                 }

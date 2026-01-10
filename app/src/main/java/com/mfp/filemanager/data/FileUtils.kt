@@ -62,4 +62,25 @@ object FileUtils {
             e.printStackTrace()
         }
     }
+
+    fun isTextFile(file: com.mfp.filemanager.data.FileModel): Boolean {
+        val mime = file.mimeType ?: ""
+        val name = file.name.lowercase()
+        return mime.startsWith("text/") || 
+               mime == "application/json" || 
+               mime == "application/xml" ||
+               name.endsWith(".log") ||
+               name.endsWith(".txt") ||
+               name.endsWith(".json") ||
+               name.endsWith(".xml") ||
+               name.endsWith(".kt") ||
+               name.endsWith(".java") ||
+               name.endsWith(".py") ||
+               name.endsWith(".js") ||
+               name.endsWith(".html") ||
+               name.endsWith(".css") ||
+               name.endsWith(".md") ||
+               name.endsWith(".gradle") ||
+               name.endsWith(".kts")
+    }
 }

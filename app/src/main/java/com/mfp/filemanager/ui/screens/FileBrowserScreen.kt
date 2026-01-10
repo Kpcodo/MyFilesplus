@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DataUsage
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.DateRange
@@ -41,7 +42,9 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.SortByAlpha
-import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -117,7 +120,7 @@ fun FileBrowserScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val viewType by viewModel.viewType.collectAsState()
     val iconSize by viewModel.iconSize.collectAsState()
-    val clipboardFile by viewModel.clipboardFile.collectAsState()
+    val clipboardFiles by viewModel.clipboardFiles.collectAsState()
     val clipboardOperation by viewModel.clipboardOperation.collectAsState()
 
     var selectionMode by remember { mutableStateOf(false) }
@@ -125,6 +128,7 @@ fun FileBrowserScreen(
     var fileToRename by remember { mutableStateOf<FileModel?>(null) }
     var fileToDelete by remember { mutableStateOf<FileModel?>(null) }
     var fileToInfo by remember { mutableStateOf<FileModel?>(null) }
+    var showBatchRenameDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -132,6 +136,34 @@ fun FileBrowserScreen(
     // Load files when the path changes
     LaunchedEffect(path) {
         viewModel.loadFiles(path)
+    }
+
+    // Delete Confirmation Dialog
+    if (fileToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { fileToDelete = null },
+            title = { Text("Delete File") },
+            text = { Text("Are you sure you want to delete ${fileToDelete?.name}?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        fileToDelete?.let { file ->
+                            viewModel.deleteFile(file.path) {
+                                viewModel.loadFiles(path)
+                            }
+                        }
+                        fileToDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { fileToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -150,10 +182,25 @@ fun FileBrowserScreen(
                             files.map { it.path }.toSet()
                         }
                     },
+                    onCopy = {
+                        val selectedFiles = files.filter { it.path in selectedItems }
+                        viewModel.addToClipboard(selectedFiles, ClipboardOperation.COPY)
+                        selectionMode = false
+                        selectedItems = setOf()
+                    },
+                    onMove = {
+                        val selectedFiles = files.filter { it.path in selectedItems }
+                        viewModel.addToClipboard(selectedFiles, ClipboardOperation.MOVE)
+                        selectionMode = false
+                        selectedItems = setOf()
+                    },
                     onDelete = {
                         viewModel.deleteMultipleFiles(selectedItems.toList(), path)
                         selectionMode = false
                         selectedItems = setOf()
+                    },
+                    onBatchRename = {
+                        showBatchRenameDialog = true
                     }
                 )
             } else {
@@ -161,64 +208,103 @@ fun FileBrowserScreen(
             }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        floatingActionButton = {
-            if (clipboardFile != null) {
-                ExtendedFloatingActionButton(
-                    onClick = {
-                        viewModel.pasteFile(path) {
-                            // Success toast or clear
+        bottomBar = {
+            if (clipboardFiles.isNotEmpty() && clipboardOperation != null) {
+                androidx.compose.material3.BottomAppBar(
+                    actions = {
+                        TextButton(onClick = { viewModel.clearClipboard() }) { Text("Cancel") }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "${clipboardFiles.size} ${if (clipboardFiles.size == 1) "file" else "files"} to ${if (clipboardOperation == ClipboardOperation.COPY) "copy" else "move"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                android.util.Log.d("FileBrowserScreen", "${if (clipboardOperation == ClipboardOperation.COPY) "Paste" else "Move Here"} clicked! path=$path, filesCount=${clipboardFiles.size}")
+                                viewModel.pasteFile(path)
+                            }
+                        ) {
+                            Text(if (clipboardOperation == ClipboardOperation.COPY) "Paste" else "Move Here")
                         }
-                    },
-                    icon = { Icon(Icons.Default.ContentPaste, contentDescription = "Paste") },
-                    text = { Text("Paste ${if (clipboardOperation == ClipboardOperation.MOVE) "Move" else "Copy"}") }
-                )
+                    }
+                ) 
             }
         }
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = isLoading,
-            onRefresh = { viewModel.loadFiles(path) },
-            modifier = Modifier.padding(padding)
-        ) {
-            Box(
+        val operationProgress by viewModel.operationProgress.collectAsState()
+        
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            PullToRefreshBox(
+                isRefreshing = isLoading,
+                onRefresh = { viewModel.loadFiles(path) },
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (isLoading && files.isEmpty()) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                } else {
-                    val onMenuAction: (FileModel, String) -> Unit = { file, action ->
-                        when (action) {
-                            "move" -> viewModel.addToClipboard(file, ClipboardOperation.MOVE)
-                            "copy" -> viewModel.addToClipboard(file, ClipboardOperation.COPY)
-                            "rename" -> { fileToRename = file }
-                            "delete" -> { fileToDelete = file }
-                            "extract" -> viewModel.extractFile(file) { viewModel.loadFiles(path) }
-                            "info" -> { 
-                                fileToInfo = file 
-                            }
-                            "share" -> {
-                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", File(file.path))
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = file.mimeType ?: "*/*"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    if (isLoading && files.isEmpty()) {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    } else {
+                        val onMenuAction: (FileModel, String) -> Unit = { file, action ->
+                            when (action) {
+                                "move" -> viewModel.addSingleToClipboard(file, ClipboardOperation.MOVE)
+                                "copy" -> viewModel.addSingleToClipboard(file, ClipboardOperation.COPY)
+                                "rename" -> { fileToRename = file }
+                                "delete" -> { fileToDelete = file }
+                                "extract" -> viewModel.extractFile(file) { viewModel.loadFiles(path) }
+                                "info" -> { 
+                                    fileToInfo = file 
                                 }
-                                context.startActivity(Intent.createChooser(intent, "Share file"))
+                                "share" -> {
+                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", File(file.path))
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = file.mimeType ?: "*/*"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Share file"))
+                                }
                             }
                         }
-                    }
 
-                    if (viewType == ViewType.LIST || viewType == ViewType.COMPACT) {
-                        val isCompact = viewType == ViewType.COMPACT
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            itemsIndexed(files, key = { _, file -> file.path }) { index, file ->
-                                Box(modifier = Modifier.animateEnter(delayMillis = index * 50)) {
-                                    FileListItem(
+                        if (viewType == ViewType.LIST || viewType == ViewType.COMPACT) {
+                            val isCompact = viewType == ViewType.COMPACT
+                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                itemsIndexed(files, key = { _, file -> file.path }) { index, file ->
+                                    Box(modifier = Modifier.animateEnter(delayMillis = index * 50)) {
+                                        FileListItem(
+                                            file = file,
+                                            isSelected = file.path in selectedItems,
+                                            selectionMode = selectionMode,
+                                            iconSize = iconSize,
+                                            isCompact = isCompact,
+                                            onClick = {
+                                                if (selectionMode) {
+                                                    selectedItems = if (file.path in selectedItems) selectedItems - file.path else selectedItems + file.path
+                                                } else {
+                                                    if (file.isDirectory) onDirectoryClick(file) else onFileClick(file)
+                                                }
+                                            },
+                                            onLongClick = {
+                                                if (!selectionMode) selectionMode = true
+                                                selectedItems = selectedItems + file.path
+                                            },
+                                            onMenuAction = { action -> onMenuAction(file, action) }
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            val minSize = if (viewType == ViewType.LARGE_GRID) 200.dp else 128.dp
+                            LazyVerticalGrid(columns = GridCells.Adaptive(minSize = minSize)) {
+                                items(files, key = { it.path }) { file ->
+                                    FileGridItem(
                                         file = file,
                                         isSelected = file.path in selectedItems,
                                         selectionMode = selectionMode,
                                         iconSize = iconSize,
-                                        isCompact = isCompact,
                                         onClick = {
                                             if (selectionMode) {
                                                 selectedItems = if (file.path in selectedItems) selectedItems - file.path else selectedItems + file.path
@@ -235,36 +321,45 @@ fun FileBrowserScreen(
                                 }
                             }
                         }
-                    } else {
-                        val minSize = if (viewType == ViewType.LARGE_GRID) 200.dp else 128.dp
-                        LazyVerticalGrid(columns = GridCells.Adaptive(minSize = minSize)) {
-                            items(files, key = { it.path }) { file ->
-                                FileGridItem(
-                                    file = file,
-                                    isSelected = file.path in selectedItems,
-                                    selectionMode = selectionMode,
-                                    iconSize = iconSize,
-                                    onClick = {
-                                        if (selectionMode) {
-                                            selectedItems = if (file.path in selectedItems) selectedItems - file.path else selectedItems + file.path
-                                        } else {
-                                            if (file.isDirectory) onDirectoryClick(file) else onFileClick(file)
-                                        }
-                                    },
-                                    onLongClick = {
-                                        if (!selectionMode) selectionMode = true
-                                        selectedItems = selectedItems + file.path
-                                    },
-                                    onMenuAction = { action -> onMenuAction(file, action) }
-                                )
-                            }
-                        }
                     }
+                }
+            }
+            
+            if (operationProgress is com.mfp.filemanager.ui.viewmodels.HomeViewModel.OperationProgressState.Active) {
+                val state = operationProgress as com.mfp.filemanager.ui.viewmodels.HomeViewModel.OperationProgressState.Active
+                val title = if (state.operation == ClipboardOperation.COPY) {
+                    "Copying ${state.currentFileIndex}/${state.totalFiles}: ${state.file.name}"
+                } else {
+                    "Moving ${state.currentFileIndex}/${state.totalFiles}: ${state.file.name}"
+                }
+                
+                Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                    com.mfp.filemanager.ui.components.OperationProgressCard(
+                        operationTitle = title,
+                        speed = "${FileUtils.formatSize(state.speedBytesPerSec)}/s",
+                        progress = state.progress,
+                        onCancel = { viewModel.cancelOperation() }
+                    )
                 }
             }
         }
     }
 
+    if (showBatchRenameDialog) {
+        BatchRenameDialog(
+            selectedCount = selectedItems.size,
+            onDismiss = { showBatchRenameDialog = false },
+            onConfirm = { baseName ->
+                val selectedFiles = files.filter { it.path in selectedItems }
+                viewModel.renameMultipleFiles(selectedFiles, baseName) {
+                    viewModel.loadFiles(path)
+                    selectionMode = false
+                    selectedItems = setOf()
+                }
+                showBatchRenameDialog = false
+            }
+        )
+    }
 
     if (fileToRename != null) {
         RenameDialog(
@@ -691,7 +786,10 @@ fun SelectionTopAppBar(
     selectedItemCount: Int,
     onClearSelection: () -> Unit,
     onSelectAll: () -> Unit,
-    onDelete: () -> Unit
+    onCopy: () -> Unit,
+    onMove: () -> Unit,
+    onDelete: () -> Unit,
+    onBatchRename: () -> Unit
 ) {
     TopAppBar(
         title = { Text("$selectedItemCount selected") },
@@ -703,6 +801,15 @@ fun SelectionTopAppBar(
         actions = {
             IconButton(onClick = onSelectAll) {
                 Icon(Icons.Default.SelectAll, contentDescription = "Select All")
+            }
+            IconButton(onClick = onCopy) {
+                Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy")
+            }
+            IconButton(onClick = onMove) {
+                Icon(Icons.Default.DriveFileMove, contentDescription = "Move")
+            }
+            IconButton(onClick = onBatchRename) {
+                Icon(Icons.Default.DriveFileRenameOutline, contentDescription = "Batch Rename")
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete")
@@ -738,6 +845,45 @@ fun RenameDialog(
                 enabled = newName.isNotEmpty() && newName != file.name
             ) {
                 Text("Rename")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun BatchRenameDialog(
+    selectedCount: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var baseName by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Batch Rename") },
+        text = {
+            Column {
+                Text("Rename $selectedCount files as 'Name (1)', 'Name (2)', etc.")
+                Spacer(modifier = Modifier.height(16.dp))
+                TextField(
+                    value = baseName,
+                    onValueChange = { baseName = it },
+                    label = { Text("Base Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(baseName) },
+                enabled = baseName.isNotBlank()
+            ) {
+                Text("Rename All")
             }
         },
         dismissButton = {
