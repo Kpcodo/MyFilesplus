@@ -340,7 +340,7 @@ class FileRepository(private val context: Context) {
         }
         
         // Filter out very small/empty system files if needed, but show OTHERS/UNKNOWN if they exist
-        return@withContext files.filter { it.size > 0 && !it.name.startsWith(".") }.take(limit)
+        return@withContext files.filter { it.size > 0 && !it.name.startsWith(".") && !it.isDirectory }.take(limit)
     }
 
     suspend fun searchFiles(
@@ -456,7 +456,8 @@ class FileRepository(private val context: Context) {
             val date = cursor.getLong(dateColumn) * 1000 // Convert seconds to milliseconds
             val mimeType = cursor.getString(mimeColumn) ?: "*/*"
             
-            files.add(FileModel(id, name, path, size, date, mimeType, determineFileType(mimeType, name), false, 0))
+            val isDir = if (path.isNotEmpty()) java.io.File(path).isDirectory else false
+            files.add(FileModel(id, name, path, size, date, mimeType, determineFileType(mimeType, name), isDir, 0))
         }
         return files
     }

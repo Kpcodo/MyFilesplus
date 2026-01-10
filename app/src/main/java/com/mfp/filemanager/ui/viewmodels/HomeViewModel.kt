@@ -243,18 +243,6 @@ class HomeViewModel(
         }
     }
 
-    fun loadFilesByCategory(type: FileType) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                _files.value = repository.getFilesByCategory(type)
-            } catch (e: Exception) {
-                showMessage("Error loading files by category: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
 
     fun deleteFile(path: String, onFinished: () -> Unit) {
         viewModelScope.launch {
@@ -309,25 +297,6 @@ class HomeViewModel(
         }
     }
 
-    fun deleteFilesAndReloadCategory(paths: List<String>, type: FileType) {
-        viewModelScope.launch {
-            // Optimistic Update: Immediately remove from list
-            val currentList = _files.value
-            _files.value = currentList.filter { it.path !in paths }
-
-            // Perform deletion in background
-            try {
-                paths.forEach { repository.deleteFile(it) }
-                // Silent refresh to ensure consistency, but don't show loading
-                val freshList = repository.getFilesByCategory(type)
-                _files.value = freshList
-            } catch (e: Exception) {
-                // Revert on error
-                _files.value = currentList
-                showMessage("Error deleting files: ${e.message}")
-            }
-        }
-    }
 
     fun extractFile(file: FileModel, onSuccess: () -> Unit) {
         viewModelScope.launch {
@@ -349,18 +318,17 @@ class HomeViewModel(
         }
     }
 
+
     private val _recentFiles = MutableStateFlow<List<FileModel>>(emptyList())
     val recentFiles: StateFlow<List<FileModel>> = _recentFiles.asStateFlow()
 
     fun loadRecentFiles() {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                _recentFiles.value = repository.getRecentFiles()
+             try {
+                val allRecent = repository.getRecentFiles()
+                _recentFiles.value = allRecent
             } catch (e: Exception) {
                 showMessage("Error loading recent files: ${e.message}")
-            } finally {
-                _isLoading.value = false
             }
         }
     }

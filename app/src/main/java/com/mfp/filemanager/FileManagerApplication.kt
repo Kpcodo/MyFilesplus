@@ -32,8 +32,8 @@ class FileManagerApplication : Application(), ImageLoaderFactory {
                         .build()
                 }
                 .components {
-                    // Safe removal of VideoFrameDecoder to prevent native crashes
-                    // add(VideoFrameDecoder.Factory()) 
+                    // Re-enabling VideoFrameDecoder for thumbnail generation
+                    add(VideoFrameDecoder.Factory()) 
                 }
                 .networkCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(CachePolicy.ENABLED)

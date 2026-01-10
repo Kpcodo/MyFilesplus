@@ -23,12 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AudioFile
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FolderZip
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Search
@@ -50,27 +44,40 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
 
+import com.mfp.filemanager.ui.components.FileThumbnail
 import com.mfp.filemanager.data.FileType
 import com.mfp.filemanager.data.FileUtils
 import com.mfp.filemanager.data.StorageInfo
 
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+
+import com.mfp.filemanager.data.FileModel
+import com.mfp.filemanager.ui.components.DetailedFileItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onCategoryClick: (FileType) -> Unit,
     onInternalStorageClick: () -> Unit,
     onOtherStorageClick: () -> Unit,
-    onViewAllClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onForecastClick: () -> Unit
+    onForecastClick: () -> Unit,
+    onRecentFileClick: (FileModel) -> Unit,
+    onViewAllRecentsClick: () -> Unit
 ) {
     val storageInfo by viewModel.storageInfo.collectAsState()
     val trashSize by viewModel.trashSize.collectAsState()
     val forecastText by viewModel.forecastText.collectAsState()
+    
+    val recentFiles by viewModel.recentFiles.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadRecentFiles()
+    }
 
 
     val isLoading by viewModel.isLoading.collectAsState()
@@ -140,11 +147,15 @@ fun HomeScreen(
             }
 
 
+
             item {
-                CategoriesSection(
-                    onCategoryClick = onCategoryClick,
-                    onViewAllClick = onViewAllClick
-                )
+                if (recentFiles.isNotEmpty()) {
+                    RecentFilesSection(
+                        files = recentFiles.take(6),
+                        onFileClick = onRecentFileClick,
+                        onViewAllClick = onViewAllRecentsClick
+                    )
+                }
             }
 
             item {
@@ -264,73 +275,6 @@ fun LegendItem(color: Color, text: String) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CategoriesSection(
-    onCategoryClick: (FileType) -> Unit,
-    onViewAllClick: () -> Unit
-) {
-    val categories = listOf(
-        CategoryItemData("Images", Icons.Filled.Image, FileType.IMAGE),
-        CategoryItemData("Videos", Icons.Filled.VideoFile, FileType.VIDEO),
-        CategoryItemData("Audio", Icons.Filled.AudioFile, FileType.AUDIO),
-        CategoryItemData("Documents", Icons.Filled.Description, FileType.DOCUMENT),
-        CategoryItemData("Downloads", Icons.Filled.Download, FileType.DOWNLOAD),
-        CategoryItemData("Archives", Icons.Filled.FolderZip, FileType.ARCHIVE)
-    )
-
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Categories", style = MaterialTheme.typography.titleMedium)
-            androidx.compose.material3.TextButton(onClick = onViewAllClick) {
-                Text("View All")
-            }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-
-        val rows = categories.chunked(3)
-        rows.forEach { rowItems ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                rowItems.forEach { item ->
-                    CategoryCard(item = item, onClick = { onCategoryClick(item.type) }, modifier = Modifier.weight(1f))
-                }
-                repeat(3 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-    }
-}
-
-data class CategoryItemData(val name: String, val icon: ImageVector, val type: FileType)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CategoryCard(item: CategoryItemData, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth().bounceClick(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = item.name,
-                modifier = Modifier.size(40.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(item.name, fontSize = 12.sp, maxLines = 1)
-        }
-    }
-}
 
 @Composable
 fun AllStorageSection(
@@ -391,6 +335,98 @@ fun StorageDeviceCard(
                     Text(info, style = MaterialTheme.typography.labelSmall)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun RecentFilesSection(
+    files: List<FileModel>,
+    onFileClick: (FileModel) -> Unit,
+    onViewAllClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(end = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "RECENT FILES",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+            )
+            androidx.compose.material3.TextButton(onClick = onViewAllClick) {
+                Text("View All")
+            }
+        }
+        
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp
+        ) {
+            Column {
+                files.forEachIndexed { index, file ->
+                    CompactFileItem(
+                        file = file,
+                        onClick = { onFileClick(file) }
+                    )
+                    if (index < files.lastIndex) {
+                        HorizontalDivider(
+                             modifier = Modifier.padding(start = 68.dp),
+                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CompactFileItem(
+    file: FileModel,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .bounceClick(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            FileThumbnail(
+                file = file,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = file.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+             Text(
+                text = FileUtils.formatSize(file.size),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

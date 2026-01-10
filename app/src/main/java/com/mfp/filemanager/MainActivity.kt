@@ -15,11 +15,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 
@@ -63,17 +61,14 @@ import com.mfp.filemanager.ui.viewmodels.SettingsViewModel
 import com.mfp.filemanager.ui.viewmodels.SettingsViewModelFactory
 import com.mfp.filemanager.ui.screens.SettingsScreen
 import com.mfp.filemanager.data.SettingsRepository
-import com.mfp.filemanager.ui.screens.AllCategoriesScreen
 import com.mfp.filemanager.ui.screens.FileBrowserScreen
-import com.mfp.filemanager.ui.screens.FileListScreen
 import com.mfp.filemanager.ui.screens.HomeScreen
+import com.mfp.filemanager.ui.screens.RecentsScreen
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModelFactory
 import com.mfp.filemanager.ui.screens.ImageViewerScreen
 import com.mfp.filemanager.ui.screens.TextViewerScreen
-import com.mfp.filemanager.ui.screens.RecentsScreen
 import com.mfp.filemanager.security.AppPermissionHandler
-import com.mfp.filemanager.security.PermissionType
 import com.mfp.filemanager.ui.theme.FileManagerTheme
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -145,7 +140,6 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
 
     val bottomNavItems = listOf(
         BottomNavItem.Home,
-        BottomNavItem.Recents,
         BottomNavItem.Trash,
         BottomNavItem.Settings
     )
@@ -172,14 +166,13 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
                     
                     val title = when (currentRoute) {
                         "home" -> "Home"
-                        "recents" -> "Recents"
                         "trash" -> "Bin"
                         "settings" -> "Settings"
                         else -> "File Manager" // Fallback or empty
                     }
 
                     // Only show for main tabs
-                    if (currentRoute in listOf("home", "recents", "trash", "settings")) {
+                    if (currentRoute in listOf("home", "trash", "settings")) {
                        androidx.compose.material3.CenterAlignedTopAppBar(
                            title = { Text(title) }
                        )
@@ -245,14 +238,12 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
 
                             if (totalDrag < 0) { // Swipe Left (Next)
                                 when (currentRoute) {
-                                    "home" -> navController.navigate("recents") { popUpTo("home"); launchSingleTop = true }
-                                    "recents" -> navController.navigate("trash") { popUpTo("home"); launchSingleTop = true }
+                                    "home" -> navController.navigate("trash") { popUpTo("home"); launchSingleTop = true }
                                     "trash" -> navController.navigate("settings") { popUpTo("home"); launchSingleTop = true }
                                 }
                             } else { // Swipe Right (Previous)
                                 when (currentRoute) {
-                                    "recents" -> navController.navigate("home") { popUpTo("home"); launchSingleTop = true }
-                                    "trash" -> navController.navigate("recents") { popUpTo("home"); launchSingleTop = true }
+                                    "trash" -> navController.navigate("home") { popUpTo("home"); launchSingleTop = true }
                                     "settings" -> navController.navigate("trash") { popUpTo("home"); launchSingleTop = true }
                                 }
                             }
@@ -318,7 +309,7 @@ fun AppNavigation(
             route = "home",
             enterTransition = {
                 val from = initialState.destination.route
-                if (from == "recents" || from == "trash" || from == "settings") {
+                if (from == "trash" || from == "settings") {
                      slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
                 } else {
                      slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) // Fallback or distinct
@@ -326,7 +317,7 @@ fun AppNavigation(
             },
             exitTransition = {
                 val to = targetState.destination.route
-                if (to == "recents" || to == "trash" || to == "settings") {
+                if (to == "trash" || to == "settings") {
                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
                 } else {
                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
@@ -335,16 +326,10 @@ fun AppNavigation(
         ) {
             HomeScreen(
                 viewModel = viewModel,
-                onCategoryClick = { type ->
-                    navController.navigate("fileList/${type.name}")
-                },
                 onInternalStorageClick = {
                     val rootPath = Environment.getExternalStorageDirectory().path
                     val encodedPath = URLEncoder.encode(rootPath, "UTF-8")
                     navController.navigate("file_browser/$encodedPath")
-                },
-                onViewAllClick = {
-                    navController.navigate("categories_all")
                 },
                 onOtherStorageClick = {
                     val otherVolumes = viewModel.getOtherVolumes()
@@ -362,34 +347,34 @@ fun AppNavigation(
                 onSearchClick = onRequestSearch,
                 onForecastClick = { 
                     navController.navigate("forecast_detail")
+                },
+                onRecentFileClick = { file ->
+                    if (file.type == FileType.IMAGE) {
+                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                        navController.navigate("image_viewer/$encodedPath")
+                    } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
+                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
+                        navController.navigate("text_viewer/$encodedPath")
+                    } else {
+                        com.mfp.filemanager.data.FileUtils.openFile(context, file)
+                    }
+                },
+                onViewAllRecentsClick = {
+                     navController.navigate("recents")
                 }
             )
         }
 
         composable(
             route = "recents",
-            enterTransition = {
-                val from = initialState.destination.route
-                if (from == "trash" || from == "settings") {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
-                } else {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
-                }
-            },
-            exitTransition = {
-                 val to = targetState.destination.route
-                 if (to == "trash" || to == "settings") {
-                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
-                 } else {
-                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
-                 }
-            }
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) }
         ) {
             RecentsScreen(
                 viewModel = viewModel,
-                showTopBar = !isSwipeEnabled,
-                swipeDeleteEnabled = settingsState.swipeDeleteEnabled,
-                swipeDeleteDirection = settingsState.swipeDeleteDirection,
+                onBack = { navController.popBackStack() },
                 onFileClick = { file ->
                     if (file.type == FileType.IMAGE) {
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
@@ -404,12 +389,6 @@ fun AppNavigation(
             )
         }
 
-        composable("categories_all") {
-            AllCategoriesScreen(
-                onCategoryClick = { type -> navController.navigate("fileList/${type.name}") },
-                onBackClick = { navController.popBackStack() }
-            )
-        }
 
         composable(
             route = "trash",
@@ -470,34 +449,6 @@ fun AppNavigation(
             )
         }
 
-        composable(
-            route = "fileList/{type}",
-            arguments = listOf(navArgument("type") { type = NavType.StringType }),
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) }
-        ) { backStackEntry ->
-            val typeName = backStackEntry.arguments?.getString("type")
-            val type = runCatching { FileType.valueOf(typeName ?: "") }.getOrDefault(FileType.UNKNOWN)
-            FileListScreen(
-                viewModel = viewModel,
-                fileType = type,
-                onBack = { navController.popBackStack() },
-                onFileClick = { file ->
-                    if (file.type == FileType.IMAGE) {
-                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
-                        navController.navigate("image_viewer/$encodedPath")
-                    } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
-                        val encodedPath = URLEncoder.encode(file.path, "UTF-8")
-                        navController.navigate("text_viewer/$encodedPath")
-                    } else {
-                        com.mfp.filemanager.data.FileUtils.openFile(context, file)
-                    }
-                },
-                onSearchClick = onRequestSearch
-            )
-        }
 
         composable(
             route = "file_browser/{path}?title={title}",
@@ -591,7 +542,6 @@ sealed class BottomNavItem(
     val title: String
 ) {
     object Home : BottomNavItem("home", Icons.Filled.Home, Icons.Outlined.Home, "Home")
-    object Recents : BottomNavItem("recents", Icons.Filled.History, Icons.Outlined.History, "Recents") 
     object Trash : BottomNavItem("trash", Icons.Filled.Delete, Icons.Outlined.Delete, "Bin")
     object Settings : BottomNavItem("settings", Icons.Filled.Settings, Icons.Outlined.Settings, "Settings")
 }
