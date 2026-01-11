@@ -36,7 +36,14 @@ description: Generates professional release notes and tags a new version for Git
      - [Fix 1]
      ```
 
-4. **Tag & Release**
+4. **Update Version Configuration**
+   - **Critical**: Open `app/build.gradle.kts`.
+   - Update `versionName` to "v<VERSION>" (or just "<VERSION>").
+   - Increment `versionCode` by 1.
+   - Run `git add app/build.gradle.kts`.
+   - Run `git commit -m "chore: bump version to v<VERSION>"`.
+
+5. **Tag & Release**
    - Propose the next logical version number based on semantic versioning and the changes.
    - Ask the user to confirm the version number.
    - If confirmed, run `git tag -a v<VERSION> -m "Release v<VERSION>"` (or include the summary).
