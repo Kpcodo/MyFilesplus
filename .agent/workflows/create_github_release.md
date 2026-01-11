@@ -1,5 +1,5 @@
----
 description: Generates professional release notes and tags a new version for GitHub release.
+trigger: "commit and release"
 ---
 
 1. **Check Git State**
