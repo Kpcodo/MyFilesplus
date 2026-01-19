@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
 import java.io.File
 
 
@@ -39,11 +40,14 @@ class HomeViewModel(
 
 
 
-    private val _storageInfo = MutableStateFlow<StorageInfo?>(null)
-    val storageInfo: StateFlow<StorageInfo?> = _storageInfo
+    private val _storageInfo = MutableStateFlow(StorageInfo.EMPTY)
+    val storageInfo: StateFlow<StorageInfo> = _storageInfo
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private val _rawFiles = MutableStateFlow<List<FileModel>>(emptyList())
 
@@ -59,7 +63,7 @@ class HomeViewModel(
 
     // Derived state for estimated full date
     val estimatedFullDate: StateFlow<String> = combine(_storageInfo, _dailyUsageRate) { info, rate ->
-        if (info == null || rate <= 0) return@combine "Unknown"
+        if (info == StorageInfo.EMPTY || rate <= 0) return@combine "Unknown"
         val daysLeft = info.freeBytes / rate
         if (daysLeft > 365 * 5) return@combine "More than 5 years"
         
@@ -136,12 +140,17 @@ class HomeViewModel(
         _hasUsageAccess.value = repository.hasUsageAccess()
     }
 
-    sealed class NavigationEvent {
-        object RequestUsageAccess : NavigationEvent()
-    }
+
 
     private val _searchResults = MutableStateFlow<List<FileModel>>(emptyList())
     val searchResults: StateFlow<List<FileModel>> = _searchResults.asStateFlow()
+
+    private val _currentMediaList = MutableStateFlow<List<FileModel>>(emptyList())
+    val currentMediaList: StateFlow<List<FileModel>> = _currentMediaList.asStateFlow()
+
+    fun setMediaContext(allFiles: List<FileModel>) {
+        _currentMediaList.value = allFiles.filter { it.type == FileType.IMAGE || it.type == FileType.VIDEO }
+    }
 
     data class SearchFilter(
         val type: FileType? = null,
@@ -163,27 +172,34 @@ class HomeViewModel(
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
-        if (query.length >= 2) { // Debounce/Limit search triggers if needed, currently immediate
+        if (query.isNotEmpty()) { // Trigger search from the first character as requested
             performSearch(query)
         } else if (query.isEmpty()) {
             _searchResults.value = emptyList()
         }
     }
 
+    private var searchJob: kotlinx.coroutines.Job? = null
+
     fun performSearch(query: String) {
-        viewModelScope.launch {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(200) // Small debounce for smooth typing
             _isLoading.value = true
             try {
                 val filter = _searchFilter.value
-                _searchResults.value = repository.searchFiles(
+                val results = repository.searchFiles(
                     query = query,
                     fileType = filter.type,
                     minSize = filter.minSize,
                     maxDaysAgo = filter.maxDaysAgo
                 )
+                _searchResults.value = results
             } catch (e: Exception) {
-                e.printStackTrace()
-                showMessage("Search failed: ${e.message}")
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    e.printStackTrace()
+                    showMessage("Search failed: ${e.message}")
+                }
             } finally {
                 _isLoading.value = false
             }
@@ -279,19 +295,16 @@ class HomeViewModel(
                 sortFiles()
                 exitBrowserSelectionMode() // Exit mode immediately or after? Usually immediate for optimistic.
 
-                var successCount = 0
-                paths.forEach { 
-                    if (repository.deleteFile(it)) successCount++ 
-                }
+                val allSuccess = repository.deleteFilesBatch(paths)
                 
                 // Refresh list eventually to be sure, but without loading spinner
                 _rawFiles.value = repository.getFilesFromPath(currentPath)
                 sortFiles()
 
-                if (successCount == paths.size) {
-                    showMessage("Moved $successCount items to Bin")
+                if (allSuccess) {
+                    showMessage("Moved ${paths.size} items to Bin")
                 } else {
-                    showMessage("Moved $successCount/${paths.size} items to Bin")
+                    showMessage("Some items could not be moved to Bin")
                 }
             } catch (e: Exception) {
                 // Revert
@@ -429,17 +442,14 @@ class HomeViewModel(
             // Usually after delete, we exit selection mode.
             exitRecentSelectionMode() 
 
-            var successCount = 0
-            selectedPaths.forEach { path ->
-                if (repository.deleteFile(path)) successCount++
-            }
+            val allSuccess = repository.deleteFilesBatch(selectedPaths)
             
-            if (successCount < selectedPaths.size) {
+            if (!allSuccess) {
                 // Determine which failed? Reloading is safer
                 loadRecentFiles()
-                showMessage("Deleted $successCount/${selectedPaths.size} items")
+                showMessage("Some items could not be deleted")
             } else {
-                showMessage("Deleted $successCount items")
+                showMessage("Deleted ${selectedPaths.size} items")
             }
         }
     }
@@ -474,17 +484,14 @@ class HomeViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                var successCount = 0
-                trashedFiles.forEach { 
-                    if (repository.restoreFile(it)) successCount++
-                }
+                val allSuccess = repository.restoreFilesBatch(trashedFiles)
                 loadTrashedFiles()
                 _trashSize.value = repository.getTrashSize()
                 
-                if (successCount == trashedFiles.size) {
-                    showMessage("Restored $successCount items")
+                if (allSuccess) {
+                    showMessage("Restored ${trashedFiles.size} items")
                 } else {
-                    showMessage("Restored $successCount/${trashedFiles.size} items")
+                    showMessage("Some items could not be restored")
                 }
             } catch (e: Exception) {
                 showMessage("Restore failed: ${e.message}")
@@ -719,7 +726,7 @@ class HomeViewModel(
     val trashSize: StateFlow<Long> = _trashSize.asStateFlow()
 
 
-    private val _largeFilesCount = MutableStateFlow(0)
+
 
     private suspend fun fetchStorageInfo() {
         _storageInfo.value = repository.getStorageInfo()
@@ -728,14 +735,11 @@ class HomeViewModel(
     fun loadStorageInfo() {
         viewModelScope.launch {
             checkUsageAccess() // Check permission whenever we load info
-            _isLoading.value = true
             try {
                 fetchStorageInfo()
             } catch (e: Exception) {
                 showMessage("Error loading storage info: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
+            } 
         }
     }
 
@@ -759,24 +763,26 @@ class HomeViewModel(
 
     fun refreshHomeData() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isRefreshing.value = true
             val minTime = launch { kotlinx.coroutines.delay(800) } // Ensure visible refresh cycle
             try {
-                val job1 = launch { 
-                    try { fetchStorageInfo() } catch (e: Exception) { showMessage("Error: ${e.message}") } 
-                }
-                val job2 = launch { 
-                    try { fetchDashboardData() } catch (_: Exception) { /* Silent */ } 
-                }
+                // Sequence tasks to avoid simultaneous binder heavy requests (prevent system_server ANR)
+                try { 
+                    fetchStorageInfo() 
+                } catch (e: Exception) { 
+                    showMessage("Error: ${e.message}") 
+                } 
                 
-                // Wait for data
-                job1.join()
-                job2.join()
+                try { 
+                    fetchDashboardData() 
+                } catch (_: Exception) { 
+                    /* Silent */ 
+                } 
                 
             } finally {
-                // Stay loading for at least minTime
+                // Stay refreshing for at least minTime
                 minTime.join()
-                _isLoading.value = false
+                _isRefreshing.value = false
             }
         }
     }
@@ -801,7 +807,6 @@ class HomeViewModel(
         viewModelScope.launch {
             if (repository.deleteFile(file.path)) {
                 _largeFiles.value = _largeFiles.value.filter { it.path != file.path }
-                _largeFilesCount.value = _largeFiles.value.size
                 _trashSize.value = repository.getTrashSize()
                 loadForecastDetails() 
             }

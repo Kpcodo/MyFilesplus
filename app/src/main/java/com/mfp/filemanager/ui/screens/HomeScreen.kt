@@ -80,9 +80,9 @@ fun HomeScreen(
     }
 
 
-    val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     PullToRefreshBox(
-        isRefreshing = isLoading,
+        isRefreshing = isRefreshing,
         onRefresh = {
             viewModel.refreshHomeData()
         },
@@ -125,24 +125,14 @@ fun HomeScreen(
             }
 
             item {
-                storageInfo?.let {
-                    // Parallax Effect
-                    // Since it's inside a LazyColumn, we can't easily get absolute scroll offset of the parent easily without nested scroll connection 
-                    // OR we can make it sticky or use a custom layout.
-                    // However, 'LazyColumn' doesn't support parallax out of the box for items.
-                    // A simple workaround for "Cinematic" feel is an entrance animation or just smooth scrolling which we have.
-                    // But to support "Parallax", we'd usually put this in a Box behind the list or use a CollapsingToolbar.
-                    // Given the request, let's add a subtle scale/fade based on its own visibility or just a cool entrance.
-                    // Let's use `animateEnter` here too for consistency first.
-                    
-                     Box(modifier = Modifier.animateEnter(delayMillis = 100)) {
-                        com.mfp.filemanager.ui.components.StorageDashboard(
-                            storageInfo = it,
-                            trashSize = trashSize,
-                            forecastText = forecastText,
-                            onForecastClick = onForecastClick
-                        )
-                    }
+                // Parallax Effect or Entrance Animation
+                 Box(modifier = Modifier.animateEnter(delayMillis = 100)) {
+                    com.mfp.filemanager.ui.components.StorageDashboard(
+                        storageInfo = storageInfo,
+                        trashSize = trashSize,
+                        forecastText = forecastText,
+                        onForecastClick = onForecastClick
+                    )
                 }
             }
 

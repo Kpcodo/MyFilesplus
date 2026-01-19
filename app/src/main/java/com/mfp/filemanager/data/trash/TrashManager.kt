@@ -25,114 +25,169 @@ class TrashManager(private val context: Context) {
 
     private val gson = Gson()
 
-    suspend fun moveToTrash(file: File): Boolean = withContext(Dispatchers.IO) {
-        if (!file.exists()) return@withContext false
+    suspend fun moveToTrash(file: File): Boolean = moveToTrashBatch(listOf(file))
 
-        val trashedName = "${System.currentTimeMillis()}_${file.name}"
-        val trashedFile = File(trashDir, trashedName)
+    suspend fun moveToTrashBatch(files: List<File>): Boolean = withContext(Dispatchers.IO) {
+        val results = mutableListOf<Boolean>()
+        val pathsToScan = mutableListOf<String>()
+        val currentMetadata = readMetadata().toMutableList()
 
-        try {
-            if (file.renameTo(trashedFile)) {
-               // Success on simple move
-               scanFile(file.absolutePath)
-               saveMetadata(file, trashedFile)
-               return@withContext true
-            } else {
-                // Fallback: Copy to trash, then delete original
-                try {
-                    if (file.isDirectory) {
-                        file.copyRecursively(trashedFile, overwrite = true)
-                    } else {
-                        file.copyTo(trashedFile, overwrite = true)
-                    }
-                    
-                    // Try standard delete
-                    val deleted = if (file.isDirectory) file.deleteRecursively() else file.delete()
-                    
-                    if (deleted) {
-                        scanFile(file.absolutePath)
-                        saveMetadata(file, trashedFile)
-                        return@withContext true
-                    } else {
-                        // Try ContentResolver delete (Force delete for media files)
-                        if (!file.isDirectory && deleteViaContentResolver(file)) {
-                             saveMetadata(file, trashedFile)
-                             return@withContext true
-                        }
-                        
-                        // Failed to delete original, rollback trash
-                        if (trashedFile.exists()) trashedFile.deleteRecursively()
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    if (trashedFile.exists()) trashedFile.deleteRecursively()
-                }
+        files.forEach { file ->
+            if (!file.exists()) {
+                results.add(false)
+                return@forEach
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // Cleanup on error
-            if (trashedFile.exists()) trashedFile.deleteRecursively()
-        }
-        return@withContext false
-    }
-    
-    private fun saveMetadata(originalFile: File, trashedFile: File) {
-        val trashedMetadata = TrashedFile(
-            id = System.currentTimeMillis(),
-            originalPath = originalFile.absolutePath,
-            trashPath = trashedFile.absolutePath,
-            name = originalFile.name,
-            size = trashedFile.length(),
-            dateDeleted = System.currentTimeMillis(),
-            type = determineFileType(originalFile.name),
-            preview = if (
-                determineFileType(originalFile.name) == FileType.IMAGE ||
-                determineFileType(originalFile.name) == FileType.VIDEO
-            ) trashedFile.absolutePath else null
-        )
-        addMetadata(trashedMetadata)
-    }
 
-    suspend fun restoreFromTrash(trashedFile: TrashedFile): Boolean = withContext(Dispatchers.IO) {
-        val fileInTrash = File(trashedFile.trashPath)
-        val originalFile = File(trashedFile.originalPath)
+            val trashedName = "${System.currentTimeMillis()}_${file.name}"
+            val trashedFile = File(trashDir, trashedName)
 
-        if (!fileInTrash.exists()) {
-            // File is missing from trash (phantom), remove metadata to clean up UI
-            removeMetadata(trashedFile)
-            return@withContext false
-        }
-
-        // Ensure parent directory exists
-        val parentDir = originalFile.parentFile
-        if (parentDir != null && !parentDir.exists()) {
-            parentDir.mkdirs()
-        }
-
-        if (fileInTrash.renameTo(originalFile)) {
-            scanFile(originalFile.absolutePath)
-            removeMetadata(trashedFile)
-            return@withContext true
-        } else {
-             // Fallback for restore
-             try {
-                val success = if (fileInTrash.isDirectory) {
-                    fileInTrash.copyRecursively(originalFile, overwrite = true)
+            try {
+                if (file.renameTo(trashedFile)) {
+                    val item = TrashedFile(
+                        id = System.nanoTime(),
+                        name = file.name,
+                        originalPath = file.absolutePath,
+                        trashPath = trashedFile.absolutePath,
+                        size = if (file.isDirectory) calculateSize(file) else file.length(),
+                        dateDeleted = System.currentTimeMillis(),
+                        type = determineFileType(file.name),
+                        preview = if (
+                            determineFileType(file.name) == FileType.IMAGE ||
+                            determineFileType(file.name) == FileType.VIDEO
+                        ) trashedFile.absolutePath else null
+                    )
+                    currentMetadata.add(item)
+                    pathsToScan.add(file.absolutePath)
+                    results.add(true)
                 } else {
-                    fileInTrash.copyTo(originalFile, overwrite = true)
-                    true
+                    // Fallback to copy-delete
+                    try {
+                        if (file.isDirectory) {
+                            file.copyRecursively(trashedFile, overwrite = true)
+                        } else {
+                            file.copyTo(trashedFile, overwrite = true)
+                        }
+                        val deleted = if (file.isDirectory) file.deleteRecursively() else file.delete()
+                        if (deleted) {
+                            val item = TrashedFile(
+                                id = System.nanoTime(),
+                                name = file.name,
+                                originalPath = file.absolutePath,
+                                trashPath = trashedFile.absolutePath,
+                                size = if (file.isDirectory) calculateSize(file) else file.length(),
+                                dateDeleted = System.currentTimeMillis(),
+                                type = determineFileType(file.name),
+                                preview = if (
+                                    determineFileType(file.name) == FileType.IMAGE ||
+                                    determineFileType(file.name) == FileType.VIDEO
+                                ) trashedFile.absolutePath else null
+                            )
+                            currentMetadata.add(item)
+                            pathsToScan.add(file.absolutePath)
+                            results.add(true)
+                        } else {
+                            // Try ContentResolver delete (Force delete for media files)
+                            if (!file.isDirectory && deleteViaContentResolver(file)) {
+                                val item = TrashedFile(
+                                    id = System.nanoTime(),
+                                    name = file.name,
+                                    originalPath = file.absolutePath,
+                                    trashPath = trashedFile.absolutePath,
+                                    size = if (file.isDirectory) calculateSize(file) else file.length(),
+                                    dateDeleted = System.currentTimeMillis(),
+                                    type = determineFileType(file.name),
+                                    preview = if (
+                                        determineFileType(file.name) == FileType.IMAGE ||
+                                        determineFileType(file.name) == FileType.VIDEO
+                                    ) trashedFile.absolutePath else null
+                                )
+                                currentMetadata.add(item)
+                                pathsToScan.add(file.absolutePath)
+                                results.add(true)
+                            } else {
+                                // Failed to delete original, rollback trash
+                                if (trashedFile.exists()) trashedFile.deleteRecursively()
+                                results.add(false)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        if (trashedFile.exists()) trashedFile.deleteRecursively()
+                        results.add(false)
+                    }
                 }
-                
-                if (success && fileInTrash.deleteRecursively()) {
-                     scanFile(originalFile.absolutePath)
-                     removeMetadata(trashedFile)
-                     return@withContext true
-                }
-             } catch(e: Exception) {
-                 e.printStackTrace()
-             }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Cleanup on error
+                if (trashedFile.exists()) trashedFile.deleteRecursively()
+                results.add(false)
+            }
         }
-        return@withContext false
+
+        if (pathsToScan.isNotEmpty() || results.any { it }) { // Only write metadata if something changed or was successfully moved
+            writeMetadata(currentMetadata)
+            scanFiles(pathsToScan)
+        }
+        return@withContext results.all { it }
+    }
+
+    private fun calculateSize(file: File): Long {
+        if (!file.isDirectory) return file.length()
+        return file.listFiles()?.sumOf { calculateSize(it) } ?: 0L
+    }
+
+    suspend fun restoreFromTrash(trashedFile: TrashedFile): Boolean = restoreBatch(listOf(trashedFile))
+
+    suspend fun restoreBatch(trashedFiles: List<TrashedFile>): Boolean = withContext(Dispatchers.IO) {
+        val currentMetadata = readMetadata().toMutableList()
+        val pathsToScan = mutableListOf<String>()
+        val results = mutableListOf<Boolean>()
+
+        trashedFiles.forEach { trashedFile ->
+            val fileInTrash = File(trashedFile.trashPath)
+            val originalFile = File(trashedFile.originalPath)
+
+            if (!fileInTrash.exists()) {
+                currentMetadata.removeAll { it.id == trashedFile.id }
+                results.add(false)
+                return@forEach
+            }
+
+            val parentDir = originalFile.parentFile
+            if (parentDir != null && !parentDir.exists()) parentDir.mkdirs()
+
+            try {
+                if (fileInTrash.renameTo(originalFile)) {
+                    pathsToScan.add(originalFile.absolutePath)
+                    currentMetadata.removeAll { it.id == trashedFile.id }
+                    results.add(true)
+                } else {
+                    // Fallback
+                    val success = if (fileInTrash.isDirectory) {
+                        fileInTrash.copyRecursively(originalFile, overwrite = true)
+                    } else {
+                        fileInTrash.copyTo(originalFile, overwrite = true)
+                        true
+                    }
+                    if (success && fileInTrash.deleteRecursively()) {
+                        pathsToScan.add(originalFile.absolutePath)
+                        currentMetadata.removeAll { it.id == trashedFile.id }
+                        results.add(true)
+                    } else {
+                        results.add(false)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                results.add(false)
+            }
+        }
+
+        if (pathsToScan.isNotEmpty() || results.any { it }) { // Only write metadata if something changed or was successfully restored
+            writeMetadata(currentMetadata)
+            scanFiles(pathsToScan)
+        }
+        return@withContext results.all { it }
     }
 
     suspend fun deletePermanently(trashedFile: TrashedFile): Boolean = withContext(Dispatchers.IO) {
@@ -202,15 +257,8 @@ class TrashManager(private val context: Context) {
         }
     }
     
-    suspend fun restoreAll(): Boolean = withContext(Dispatchers.IO) {
-        val trashedFiles = getTrashedFiles()
-        var allSuccess = true
-        for (file in trashedFiles) {
-            if (!restoreFromTrash(file)) {
-                allSuccess = false
-            }
-        }
-        return@withContext allSuccess
+    suspend fun restoreAll(): Boolean {
+        return restoreBatch(getTrashedFiles())
     }
 
     suspend fun cleanupExpiredFiles(retentionDays: Int): Int = withContext(Dispatchers.IO) {
@@ -260,8 +308,13 @@ class TrashManager(private val context: Context) {
     }
 
     private fun scanFile(path: String) {
+        scanFiles(listOf(path))
+    }
+
+    private fun scanFiles(paths: List<String>) {
+        if (paths.isEmpty()) return
         try {
-            MediaScannerConnection.scanFile(context, arrayOf(path), null, null)
+            MediaScannerConnection.scanFile(context, paths.toTypedArray(), null, null)
         } catch (e: Exception) {
             e.printStackTrace()
         }

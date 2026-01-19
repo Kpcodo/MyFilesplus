@@ -46,7 +46,7 @@ class FileRepository(private val context: Context) {
         files?.mapNotNull { file ->
             val ext = file.extension.lowercase()
             val mimeType = if (file.isFile) {
-                mimeMap.getMimeTypeFromExtension(ext) ?: context.contentResolver.getType(Uri.fromFile(file))
+                mimeMap.getMimeTypeFromExtension(ext)
             } else null
             val itemCount = if (file.isDirectory) file.list()?.size ?: 0 else 0
             FileModel(
@@ -93,21 +93,18 @@ class FileRepository(private val context: Context) {
     
     private val trashManager = TrashManager(context)
 
-    suspend fun deleteFile(path: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val file = File(path)
-            if (file.exists()) {
-                return@withContext trashManager.moveToTrash(file)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return@withContext false
+    suspend fun deleteFile(path: String): Boolean = trashManager.moveToTrash(File(path))
+
+    suspend fun deleteFilesBatch(paths: List<String>): Boolean = withContext(Dispatchers.IO) {
+        val files = paths.map { File(it) }
+        trashManager.moveToTrashBatch(files)
     }
 
     suspend fun getTrashedFiles(): List<TrashedFile> = trashManager.getTrashedFiles()
 
     suspend fun restoreFile(trashedFile: TrashedFile): Boolean = trashManager.restoreFromTrash(trashedFile)
+
+    suspend fun restoreFilesBatch(trashedFiles: List<TrashedFile>): Boolean = trashManager.restoreBatch(trashedFiles)
 
     suspend fun restoreAllFiles(): Boolean = trashManager.restoreAll()
 
@@ -550,11 +547,35 @@ class FileRepository(private val context: Context) {
             val freeBytes = availableBlocks * blockSize
             val usedBytes = totalBytes - freeBytes
 
-            val imageBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE)
-            val videoBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
-            val audioBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO)
+            var imageBytes = 0L
+            var videoBytes = 0L
+            var audioBytes = 0L
+            var appBytes = 0L
+            
+            // Try optimized query using StorageStatsManager first (API 26+)
+            var statsSuccess = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasUsageAccess()) {
+                try {
+                    val storageStatsManager = context.getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
+                    val stats = storageStatsManager.queryExternalStatsForUser(android.os.storage.StorageManager.UUID_DEFAULT, Process.myUserHandle())
+                    imageBytes = stats.imageBytes
+                    videoBytes = stats.videoBytes
+                    audioBytes = stats.audioBytes
+                    appBytes = getAppSize() // Still need this for total installed app size including data
+                    statsSuccess = true
+                } catch (e: Exception) {
+                    android.util.Log.e("FileRepository", "queryExternalStatsForUser failed", e)
+                }
+            }
+            
+            if (!statsSuccess) {
+                imageBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE)
+                videoBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
+                audioBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO)
+                appBytes = getAppSize()
+            }
+
             val documentBytes = getDocumentSize()
-            val appBytes = getAppSize()
             val archiveBytes = getArchiveSize()
             
             val mediaSum = imageBytes + videoBytes + audioBytes + documentBytes + appBytes + archiveBytes
@@ -588,29 +609,38 @@ class FileRepository(private val context: Context) {
             val hasPermission = mode == android.app.AppOpsManager.MODE_ALLOWED
 
             if (hasPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // Precise Calculation using StorageStatsManager (API 26+)
+                // Optimized Calculation using StorageStatsManager (API 26+)
+                // Using queryStatsForUser instead of iterating through each package individually.
+                // This reduces N binder calls to 1, significantly decreasing the load on system_server.
                 val storageStatsManager = context.getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
                 val userHandle = Process.myUserHandle()
                 val storageUuid = android.os.storage.StorageManager.UUID_DEFAULT // Internal Storage
-
-                installedApps.forEach { appInfo ->
-                     // removed FLAG_SYSTEM check to include all apps
-                     try {
-                         val stats = storageStatsManager.queryStatsForPackage(storageUuid, appInfo.packageName, userHandle)
-                         size += stats.appBytes + stats.dataBytes + stats.cacheBytes
-                     } catch (e: Exception) {
-                         // Fallback individually
-                         val file = File(appInfo.sourceDir)
-                         if (file.exists()) size += file.length()
-                     }
+                
+                try {
+                    val stats = storageStatsManager.queryStatsForUser(storageUuid, userHandle)
+                    size = stats.appBytes + stats.dataBytes + stats.cacheBytes
+                } catch (e: Exception) {
+                    // Critical Fallback: Avoid ANY binder calls in a loop.
+                    // Just use a simple File length check for the APKs. 
+                    // This is much faster and won't starve the binder pool.
+                    installedApps.forEach { appInfo ->
+                        val file = File(appInfo.sourceDir)
+                        if (file.exists()) size += file.length()
+                    }
                 }
             } else {
                      // Fallback: APK Size only
                  installedApps.forEach { appInfo ->
-                    // Include all apps, system or user
-                    val file = File(appInfo.sourceDir)
-                    if (file.exists()) {
-                         size += file.length()
+                    // Exclude System Apps unless they are updated (residing on /data)
+                    // System apps on /system do not consume user storage space.
+                    val isSystem = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+                    val isUpdatedSystem = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+                    
+                    if (!isSystem || isUpdatedSystem) {
+                        val file = File(appInfo.sourceDir)
+                        if (file.exists()) {
+                             size += file.length()
+                        }
                     }
                 }
             }
@@ -622,7 +652,7 @@ class FileRepository(private val context: Context) {
 
     private fun getArchiveSize(): Long {
         var size: Long = 0
-        val projection = arrayOf("sum(${MediaStore.Files.FileColumns.SIZE})")
+        val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
         val (selection, selectionArgs) = getSelectionForCategory(FileType.ARCHIVE)
         
         val queryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -633,8 +663,11 @@ class FileRepository(private val context: Context) {
 
         try {
             context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    size = cursor.getLong(0)
+                val sizeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.SIZE)
+                if (sizeIndex != -1) {
+                    while (cursor.moveToNext()) {
+                        size += cursor.getLong(sizeIndex)
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -645,7 +678,7 @@ class FileRepository(private val context: Context) {
 
     private fun getDocumentSize(): Long {
         var size: Long = 0
-        val projection = arrayOf("sum(${MediaStore.Files.FileColumns.SIZE})")
+        val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
         
         // Expanded Document Types
         val mimeTypes = arrayOf(
@@ -656,10 +689,7 @@ class FileRepository(private val context: Context) {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // xlsx
             "application/vnd.ms-powerpoint",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
-            "text/plain",
-            "text/rtf",
-            "text/html", // optional
-            "application/epub+zip"
+            "text/plain"
         )
         val selection = mimeTypes.joinToString(" OR ") { "${MediaStore.Files.FileColumns.MIME_TYPE} = ?" }
         
@@ -672,8 +702,11 @@ class FileRepository(private val context: Context) {
         try {
              // Pass mimeTypes as args for the ? placeholders
             context.contentResolver.query(queryUri, projection, selection, mimeTypes, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    size = cursor.getLong(0)
+                val sizeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.SIZE)
+                if (sizeIndex != -1) {
+                    while (cursor.moveToNext()) {
+                        size += cursor.getLong(sizeIndex)
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -689,8 +722,7 @@ class FileRepository(private val context: Context) {
             if (newFile.exists()) return@withContext false
             val success = file.renameTo(newFile)
             if (success) {
-                scanFile(path) // Notify old path is gone
-                scanFile(newFile.absolutePath) // Notify new path exists
+                scanFiles(listOf(path, newFile.absolutePath))
             }
             return@withContext success
         } catch (e: Exception) {
@@ -698,6 +730,7 @@ class FileRepository(private val context: Context) {
             return@withContext false
         }
     }
+    
 
     suspend fun copyFile(sourcePath: String, destPath: String, onProgress: ((Long, Long) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -925,7 +958,7 @@ class FileRepository(private val context: Context) {
 
     private fun getCategorySize(mediaType: Int): Long {
         var size: Long = 0
-        val projection = arrayOf("sum(${MediaStore.Files.FileColumns.SIZE})")
+        val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
         val selection = "${MediaStore.Files.FileColumns.MEDIA_TYPE} = ?"
         val selectionArgs = arrayOf(mediaType.toString())
         
@@ -937,8 +970,11 @@ class FileRepository(private val context: Context) {
 
         try {
             context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    size = cursor.getLong(0)
+                val sizeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.SIZE)
+                if (sizeIndex != -1) {
+                    while (cursor.moveToNext()) {
+                        size += cursor.getLong(sizeIndex)
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -948,8 +984,13 @@ class FileRepository(private val context: Context) {
     }
 
     private fun scanFile(path: String) {
+        scanFiles(listOf(path))
+    }
+
+    private fun scanFiles(paths: List<String>) {
+        if (paths.isEmpty()) return
         try {
-            MediaScannerConnection.scanFile(context, arrayOf(path), null) { p, uri ->
+            MediaScannerConnection.scanFile(context, paths.toTypedArray(), null) { p, uri ->
                 android.util.Log.d("FileRepository", "Scanned $p: $uri")
             }
         } catch (e: Exception) {

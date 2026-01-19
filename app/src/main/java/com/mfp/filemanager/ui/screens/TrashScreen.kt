@@ -319,7 +319,7 @@ fun TrashedItem(
             } else {
                 val icon = when (file.type) {
                     FileType.AUDIO -> Icons.Default.MusicNote
-                    FileType.ARCHIVE -> Icons.Default.FolderZip
+                    FileType.ARCHIVE -> Icons.Default.Folder
                     FileType.DOCUMENT -> Icons.Default.Description
                     else -> Icons.AutoMirrored.Filled.InsertDriveFile
                 }

@@ -161,7 +161,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
             try {
                 val bytes = httpClient.get(apkAsset.downloadUrl) {
                     onDownload { bytesSentTotal, contentLength ->
-                        if (contentLength > 0) {
+                        if (contentLength != null && contentLength > 0) {
                             val progress = bytesSentTotal.toFloat() / contentLength
                             _updateState.value = UpdateCheckState.Downloading(progress)
                         }

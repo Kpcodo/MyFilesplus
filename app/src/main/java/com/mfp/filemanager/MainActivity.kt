@@ -8,7 +8,6 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,7 +44,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -66,7 +65,7 @@ import com.mfp.filemanager.ui.screens.HomeScreen
 import com.mfp.filemanager.ui.screens.RecentsScreen
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModelFactory
-import com.mfp.filemanager.ui.screens.ImageViewerScreen
+import com.mfp.filemanager.ui.screens.MediaViewerScreen
 import com.mfp.filemanager.ui.screens.TextViewerScreen
 import com.mfp.filemanager.security.AppPermissionHandler
 import com.mfp.filemanager.ui.theme.FileManagerTheme
@@ -145,16 +144,14 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        val blurModifier = if (showSearchOverlay && settingsState.isSwipeNavigationEnabled && settingsState.isBlurEnabled) {
-             Modifier.blur(30.dp) 
-        } else if (showSearchOverlay && settingsState.isBlurEnabled) {
-             Modifier.blur(30.dp)
-        } else {
-             Modifier
-        }
-        
-        // Reduce blur radius for performance. Modifier.blur handles API 31+ compatibility.
-        val effectiveBlur = if (showSearchOverlay && settingsState.isBlurEnabled) Modifier.blur(16.dp) else Modifier
+        // Animate blur radius for smooth transitions
+        // Reduce blur radius slightly for better performance
+        val blurRadius by androidx.compose.animation.core.animateDpAsState(
+            targetValue = if (showSearchOverlay && settingsState.isBlurEnabled) 6.dp else 0.dp,
+            animationSpec = androidx.compose.animation.core.tween(250),
+            label = "BlurAnimation"
+        )
+        val effectiveBlur = if (blurRadius > 0.dp) Modifier.blur(blurRadius) else Modifier
 
         Scaffold(
             modifier = Modifier.fillMaxSize().then(effectiveBlur),
@@ -272,15 +269,16 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
             onClose = { showSearchOverlay = false },
             onFileClick = { file ->
                 showSearchOverlay = false
-                // Handle file click navigation
-                if (file.type == FileType.IMAGE) {
+                if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
+                    viewModel.setMediaContext(viewModel.searchResults.value)
                     val encodedPath = URLEncoder.encode(file.path, "UTF-8")
-                    navController.navigate("image_viewer/$encodedPath")
-                } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
-                    val encodedPath = URLEncoder.encode(file.path, "UTF-8")
-                    navController.navigate("text_viewer/$encodedPath")
+                    navController.navigate("media_viewer/$encodedPath")
                 } else {
-                    com.mfp.filemanager.data.FileUtils.openFile(context, file)
+                    // Navigate to the file's location (parent folder)
+                    val targetFile = java.io.File(file.path)
+                    val folderPath = if (file.isDirectory) file.path else targetFile.parent ?: file.path
+                    val encodedPath = URLEncoder.encode(folderPath, "UTF-8")
+                    navController.navigate("file_browser/$encodedPath")
                 }
             }
         )
@@ -349,9 +347,10 @@ fun AppNavigation(
                     navController.navigate("forecast_detail")
                 },
                 onRecentFileClick = { file ->
-                    if (file.type == FileType.IMAGE) {
+                    if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
+                        viewModel.setMediaContext(viewModel.recentFiles.value)
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
-                        navController.navigate("image_viewer/$encodedPath")
+                        navController.navigate("media_viewer/$encodedPath")
                     } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                         navController.navigate("text_viewer/$encodedPath")
@@ -376,9 +375,10 @@ fun AppNavigation(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onFileClick = { file ->
-                    if (file.type == FileType.IMAGE) {
+                    if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
+                        viewModel.setMediaContext(viewModel.recentFiles.value)
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
-                        navController.navigate("image_viewer/$encodedPath")
+                        navController.navigate("media_viewer/$encodedPath")
                     } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                         navController.navigate("text_viewer/$encodedPath")
@@ -483,9 +483,10 @@ fun AppNavigation(
                         // So we DON'T pass title for subfolders, letting them show their own names.
                         navController.navigate("file_browser/$encodedPath")
                     } else {
-                        if (file.type == FileType.IMAGE) {
+                        if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
+                            viewModel.setMediaContext(viewModel.files.value)
                             val encodedPath = URLEncoder.encode(file.path, "UTF-8")
-                            navController.navigate("image_viewer/$encodedPath")
+                            navController.navigate("media_viewer/$encodedPath")
                         } else if (com.mfp.filemanager.data.FileUtils.isTextFile(file)) {
                             val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                             navController.navigate("text_viewer/$encodedPath")
@@ -503,14 +504,14 @@ fun AppNavigation(
         }
 
         composable(
-            route = "image_viewer/{path}",
+            route = "media_viewer/{path}",
             arguments = listOf(navArgument("path") { type = NavType.StringType })
         ) { backStackEntry ->
             val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
             val path = URLDecoder.decode(encodedPath, "UTF-8")
-            ImageViewerScreen(
+            MediaViewerScreen(
                 viewModel = viewModel,
-                path = path,
+                initialPath = path,
                 onBack = { navController.popBackStack() }
             )
         }

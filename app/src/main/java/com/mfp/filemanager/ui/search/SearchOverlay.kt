@@ -1,10 +1,10 @@
 package com.mfp.filemanager.ui.search
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,40 +14,24 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.unit.dp
-import com.mfp.filemanager.data.clipboard.ClipboardOperation
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.*
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
-import com.mfp.filemanager.ui.components.DetailedFileItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,8 +62,8 @@ fun SearchOverlay(
 
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn() + expandHorizontally(expandFrom = Alignment.CenterHorizontally),
-        exit = fadeOut() + shrinkHorizontally(shrinkTowards = Alignment.CenterHorizontally)
+        enter = fadeIn() + slideInVertically(initialOffsetY = { -40 }),
+        exit = fadeOut(animationSpec = tween(durationMillis = 150))
     ) {
         Box(
             modifier = Modifier
@@ -107,7 +91,14 @@ fun SearchOverlay(
                 ) {
                     SearchBar(
                         query = query,
-                        onQueryChange = { viewModel.updateSearchQuery(it) },
+                        onQueryChange = {
+                            viewModel.updateSearchQuery(it)
+                            if (it.isNotEmpty()) { // Trigger search from the first character as requested
+                                viewModel.performSearch(it)
+                            } else if (it.isEmpty()) {
+                                viewModel.clearSearch()
+                            }
+                        },
                         onSearch = { 
                             viewModel.performSearch(it)
                             keyboardController?.hide()
@@ -148,49 +139,74 @@ fun SearchOverlay(
                 if (query.isNotEmpty() || results.isNotEmpty() || isLoading) {
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .weight(1f, fill = false) // Allow it to shrink if specific results are few? No, logic needs to be safe.
-                            // Better: use weight(1f) but inside a scope that allows height control?
-                            // Actually, just let it take available space up to some padding.
-                            .padding(bottom = 16.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {}, // Consume clicks
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                        tonalElevation = 4.dp
-                    ) {
-                        if (isLoading) {
-                            Box(modifier = Modifier.height(100.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
-                            }
-                        } else {
-                            LazyColumn(
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(results, key = { it.id }) { file ->
-                                    DetailedFileItem(
-                                        file = file,
-                                        isSelected = false,
-                                        selectionMode = false,
-                                        onClick = { 
-                                            onFileClick(file)
-                                            onClose()
-                                        },
-                                        onLongClick = { },
-                                        onMenuAction = { action -> 
-                                            when (action) {
-                                                "move" -> viewModel.addSingleToClipboard(file, ClipboardOperation.MOVE)
-                                                "copy" -> viewModel.addSingleToClipboard(file, ClipboardOperation.COPY)
-                                                "delete" -> viewModel.deleteFile(file.path) { viewModel.performSearch(query) }
-                                                "extract" -> viewModel.extractFile(file) { viewModel.performSearch(query) }
+                    if (isLoading) {
+                        Box(modifier = Modifier.height(100.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color.White)
+                        }
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {} // Consume clicks to prevent closing
+                        ) {
+                            itemsIndexed(results, key = { _, file -> file.id }) { index, file ->
+                                Column {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { 
+                                                keyboardController?.hide()
+                                                onFileClick(file)
+                                                onClose()
+                                            }
+                                            .padding(vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Thumbnail Card
+                                        Surface(
+                                            modifier = Modifier.size(52.dp),
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            shadowElevation = 2.dp
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(6.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                               com.mfp.filemanager.ui.components.FileThumbnail(
+                                                    file = file,
+                                                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp))
+                                                ) 
                                             }
                                         }
-                                    )}
+                                        
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        
+                                        // Filename only
+                                        Text(
+                                            text = file.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    
+                                    if (index < results.lastIndex) {
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(start = 68.dp), // Align with text
+                                            color = Color.White.copy(alpha = 0.15f),
+                                            thickness = 0.5.dp
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

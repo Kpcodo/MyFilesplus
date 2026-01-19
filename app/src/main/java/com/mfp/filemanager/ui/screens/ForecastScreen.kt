@@ -286,7 +286,10 @@ fun FileTypeDistributionCard(info: StorageInfo) {
                 if (info.imageBytes > 0) Box(Modifier.weight(info.imageBytes / total).fillMaxSize().background(imageColor))
                 if (info.audioBytes > 0) Box(Modifier.weight(info.audioBytes / total).fillMaxSize().background(audioColor))
                 if (info.documentBytes > 0) Box(Modifier.weight(info.documentBytes / total).fillMaxSize().background(docColor))
-                if (info.otherBytes > 0) Box(Modifier.weight(info.otherBytes / total).fillMaxSize().background(otherColor))
+                
+                val otherTotal = info.otherBytes + info.archiveBytes
+                if (otherTotal > 0) Box(Modifier.weight(otherTotal / total).fillMaxSize().background(otherColor))
+                
                 if (info.freeBytes > 0) Box(Modifier.weight(info.freeBytes / total).fillMaxSize().background(freeColor))
             }
             
@@ -331,7 +334,7 @@ fun FileTypeDistributionCard(info: StorageInfo) {
                 ),
                 CategoryDetail(
                     name = "Others", 
-                    size = info.otherBytes, 
+                    size = info.otherBytes + info.archiveBytes, 
                     color = otherColor, 
                     icon = Icons.Default.MoreHoriz
                 )

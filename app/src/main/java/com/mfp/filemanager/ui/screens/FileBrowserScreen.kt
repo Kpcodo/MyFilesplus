@@ -1,4 +1,5 @@
-package com.mfp.filemanager.ui.screens
+package com.mfp.filemanager.ui.screens 
+
 
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -35,7 +36,7 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.DriveFileMove
-import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
@@ -48,9 +49,9 @@ import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
-import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.*
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -685,7 +686,7 @@ fun FileThumbnail(
                 }
                 FileType.ARCHIVE -> {
                     Icon(
-                        imageVector = Icons.Default.FolderZip, // Or fallback if not available
+                        imageVector = Icons.Default.Folder, // Fallback for better compatibility
                         contentDescription = file.name,
                         modifier = Modifier.size(32.dp * iconSize),
                         tint = MaterialTheme.colorScheme.secondary

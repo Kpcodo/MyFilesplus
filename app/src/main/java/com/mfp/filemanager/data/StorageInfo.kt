@@ -11,4 +11,8 @@ data class StorageInfo(
     val appBytes: Long,
     val archiveBytes: Long,
     val otherBytes: Long // usedBytes - (image + video + audio + docs + apps)
-)
+) {
+    companion object {
+        val EMPTY = StorageInfo(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    }
+}

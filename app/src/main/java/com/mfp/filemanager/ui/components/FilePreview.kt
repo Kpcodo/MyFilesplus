@@ -14,7 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.MusicNote
@@ -120,10 +120,11 @@ private fun ApkIcon(
         withContext(Dispatchers.IO) {
             try {
                 val packageInfo = context.packageManager.getPackageArchiveInfo(filePath, 0)
-                if (packageInfo != null) {
-                    packageInfo.applicationInfo.sourceDir = filePath
-                    packageInfo.applicationInfo.publicSourceDir = filePath
-                    val drawable = packageInfo.applicationInfo.loadIcon(context.packageManager)
+                val appInfo = packageInfo?.applicationInfo
+                if (appInfo != null) {
+                    appInfo.sourceDir = filePath
+                    appInfo.publicSourceDir = filePath
+                    val drawable = appInfo.loadIcon(context.packageManager)
                     iconBitmap = drawable.toBitmap()
                 } else {
                     error = true
@@ -229,7 +230,7 @@ fun GenericFileIcon(
         fileType == FileType.AUDIO -> Icons.Default.AudioFile
         fileType == FileType.VIDEO -> Icons.Default.VideoFile
         fileType == FileType.IMAGE -> Icons.Default.Image
-        fileType == FileType.ARCHIVE -> Icons.Default.FolderZip
+        fileType == FileType.ARCHIVE -> Icons.Default.Folder
         fileType == FileType.APK -> Icons.Default.Android
         extension == "pdf" -> Icons.Default.PictureAsPdf
         extension == "txt" -> Icons.Default.Description
