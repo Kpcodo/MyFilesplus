@@ -22,6 +22,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -47,18 +50,7 @@ import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.*
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -124,11 +116,12 @@ fun FileBrowserScreen(
     val iconSize by viewModel.iconSize.collectAsState()
     val clipboardFiles by viewModel.clipboardFiles.collectAsState()
     val clipboardOperation by viewModel.clipboardOperation.collectAsState()
+    val swipeDeleteEnabled by viewModel.swipeDeleteEnabled.collectAsState()
 
-    var selectionMode by remember { mutableStateOf(false) }
-    var selectedItems by remember { mutableStateOf(setOf<String>()) }
+    val selectionMode by viewModel.isBrowserSelectionMode.collectAsState()
+    val selectedItems by viewModel.selectedBrowserFiles.collectAsState()
+
     var fileToRename by remember { mutableStateOf<FileModel?>(null) }
-    var fileToDelete by remember { mutableStateOf<FileModel?>(null) }
     var fileToInfo by remember { mutableStateOf<FileModel?>(null) }
     var showBatchRenameDialog by remember { mutableStateOf(false) }
 
@@ -140,33 +133,7 @@ fun FileBrowserScreen(
         viewModel.loadFiles(path)
     }
 
-    // Delete Confirmation Dialog
-    if (fileToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { fileToDelete = null },
-            title = { Text("Delete File") },
-            text = { Text("Are you sure you want to delete ${fileToDelete?.name}?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        fileToDelete?.let { file ->
-                            viewModel.deleteFile(file.path) {
-                                viewModel.loadFiles(path)
-                            }
-                        }
-                        fileToDelete = null
-                    }
-                ) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { fileToDelete = null }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
+
 
     Scaffold(
         topBar = {
@@ -174,36 +141,32 @@ fun FileBrowserScreen(
                 SelectionTopAppBar(
                     selectedItemCount = selectedItems.size,
                     onClearSelection = {
-                        selectionMode = false
-                        selectedItems = setOf()
+                        viewModel.exitBrowserSelectionMode()
                     },
                     onSelectAll = {
-                        selectedItems = if (selectedItems.size == files.size) {
-                            setOf()
+                        if (selectedItems.size == files.size) {
+                            viewModel.clearBrowserSelection()
                         } else {
-                            files.map { it.path }.toSet()
+                            viewModel.selectAllBrowserFiles()
                         }
                     },
                     onCopy = {
                         val selectedFiles = files.filter { it.path in selectedItems }
                         viewModel.addToClipboard(selectedFiles, ClipboardOperation.COPY)
-                        selectionMode = false
-                        selectedItems = setOf()
+                        viewModel.exitBrowserSelectionMode()
                     },
                     onMove = {
                         val selectedFiles = files.filter { it.path in selectedItems }
                         viewModel.addToClipboard(selectedFiles, ClipboardOperation.MOVE)
-                        selectionMode = false
-                        selectedItems = setOf()
+                        viewModel.exitBrowserSelectionMode()
                     },
                     onDelete = {
-                        viewModel.deleteMultipleFiles(selectedItems.toList(), path)
-                        selectionMode = false
-                        selectedItems = setOf()
+                        viewModel.deleteSelectedBrowserFiles(path)
                     },
                     onBatchRename = {
                         showBatchRenameDialog = true
-                    }
+                    },
+                    isAllSelected = selectedItems.size == files.size && files.isNotEmpty()
                 )
             } else {
                 FileBrowserTopAppBar(viewModel, path, title, onBack, onSearchClick)
@@ -254,7 +217,7 @@ fun FileBrowserScreen(
                                 "move" -> viewModel.addSingleToClipboard(file, ClipboardOperation.MOVE)
                                 "copy" -> viewModel.addSingleToClipboard(file, ClipboardOperation.COPY)
                                 "rename" -> { fileToRename = file }
-                                "delete" -> { fileToDelete = file }
+                                "delete" -> viewModel.deleteFile(file.path) { viewModel.loadFiles(path) }
                                 "extract" -> viewModel.extractFile(file) { viewModel.loadFiles(path) }
                                 "info" -> { 
                                     fileToInfo = file 
@@ -276,27 +239,77 @@ fun FileBrowserScreen(
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 itemsIndexed(files, key = { _, file -> file.path }) { index, file ->
                                     Box(modifier = Modifier.animateEnter(delayMillis = index * 50)) {
-                                        FileListItem(
+                                    // Swipe to Delete (Only active in List/Compact mode and NOT in selection/search mode ideally, effectively same as Recents)
+                                    val dismissState = rememberSwipeToDismissBoxState(
+                                        confirmValueChange = { value ->
+                                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                                viewModel.deleteFile(file.path) {
+                                                    viewModel.loadFiles(path)
+                                                }
+                                                true 
+                                            } else {
+                                                false
+                                            }
+                                        }
+                                    )
+
+                                    if(selectionMode) {
+                                         // specific path for selection mode (no swipe)
+                                         FileListItem(
                                             file = file,
                                             isSelected = file.path in selectedItems,
                                             selectionMode = selectionMode,
                                             iconSize = iconSize,
                                             isCompact = isCompact,
-                                            onClick = {
-                                                if (selectionMode) {
-                                                    selectedItems = if (file.path in selectedItems) selectedItems - file.path else selectedItems + file.path
+                                            onClick = { viewModel.toggleBrowserSelection(file.path) },
+                                            onLongClick = { viewModel.toggleBrowserSelection(file.path) },
+                                            onMenuAction = { action -> onMenuAction(file, action) }
+                                        )
+                                    } else {
+                                        SwipeToDismissBox(
+                                            state = dismissState,
+                                            backgroundContent = {
+                                                val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                                                    MaterialTheme.colorScheme.errorContainer
                                                 } else {
-                                                    if (file.isDirectory) onDirectoryClick(file) else onFileClick(file)
+                                                    Color.Transparent
+                                                }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(color)
+                                                        .padding(horizontal = 20.dp),
+                                                    contentAlignment = Alignment.CenterEnd
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = "Delete",
+                                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                                    )
                                                 }
                                             },
-                                            onLongClick = {
-                                                if (!selectionMode) selectionMode = true
-                                                selectedItems = selectedItems + file.path
-                                            },
-                                            onMenuAction = { action -> onMenuAction(file, action) }
+                                            enableDismissFromStartToEnd = false,
+                                            enableDismissFromEndToStart = swipeDeleteEnabled,
+                                            content = {
+                                                 FileListItem(
+                                                    file = file,
+                                                    isSelected = file.path in selectedItems,
+                                                    selectionMode = selectionMode,
+                                                    iconSize = iconSize,
+                                                    isCompact = isCompact,
+                                                    onClick = {
+                                                        if (file.isDirectory) onDirectoryClick(file) else onFileClick(file)
+                                                    },
+                                                    onLongClick = {
+                                                        viewModel.toggleBrowserSelection(file.path) 
+                                                    },
+                                                    onMenuAction = { action -> onMenuAction(file, action) }
+                                                )
+                                            }
                                         )
                                     }
                                 }
+                            }
                             }
                         } else {
                             val minSize = if (viewType == ViewType.LARGE_GRID) 200.dp else 128.dp
@@ -309,14 +322,13 @@ fun FileBrowserScreen(
                                         iconSize = iconSize,
                                         onClick = {
                                             if (selectionMode) {
-                                                selectedItems = if (file.path in selectedItems) selectedItems - file.path else selectedItems + file.path
+                                                viewModel.toggleBrowserSelection(file.path)
                                             } else {
                                                 if (file.isDirectory) onDirectoryClick(file) else onFileClick(file)
                                             }
                                         },
                                         onLongClick = {
-                                            if (!selectionMode) selectionMode = true
-                                            selectedItems = selectedItems + file.path
+                                            viewModel.toggleBrowserSelection(file.path)
                                         },
                                         onMenuAction = { action -> onMenuAction(file, action) }
                                     )
@@ -355,8 +367,7 @@ fun FileBrowserScreen(
                 val selectedFiles = files.filter { it.path in selectedItems }
                 viewModel.renameMultipleFiles(selectedFiles, baseName) {
                     viewModel.loadFiles(path)
-                    selectionMode = false
-                    selectedItems = setOf()
+                    viewModel.exitBrowserSelectionMode()
                 }
                 showBatchRenameDialog = false
             }
@@ -376,31 +387,7 @@ fun FileBrowserScreen(
         )
     }
 
-    if (fileToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { fileToDelete = null },
-            title = { Text("Delete File") },
-            text = { Text("Are you sure you want to delete ${fileToDelete?.name}?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val file = fileToDelete!!
-                        fileToDelete = null
-                        viewModel.deleteFile(file.path) {
-                            viewModel.loadFiles(path)
-                        }
-                    }
-                ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { fileToDelete = null }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
+
 
     if (fileToInfo != null) {
         val file = fileToInfo!!
@@ -437,7 +424,7 @@ fun FileListItem(
     onLongClick: () -> Unit,
     onMenuAction: (String) -> Unit
 ) {
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
     var showMenu by remember { mutableStateOf(false) }
 
     Column(
@@ -791,7 +778,8 @@ fun SelectionTopAppBar(
     onCopy: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
-    onBatchRename: () -> Unit
+    onBatchRename: () -> Unit,
+    isAllSelected: Boolean = false
 ) {
     TopAppBar(
         title = { Text("$selectedItemCount selected") },
@@ -802,7 +790,11 @@ fun SelectionTopAppBar(
         },
         actions = {
             IconButton(onClick = onSelectAll) {
-                Icon(Icons.Default.SelectAll, contentDescription = "Select All")
+                Icon(
+                    imageVector = Icons.Default.SelectAll,
+                    contentDescription = if (isAllSelected) "Unselect All" else "Select All",
+                    tint = if (isAllSelected) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                )
             }
             IconButton(onClick = onCopy) {
                 Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy")

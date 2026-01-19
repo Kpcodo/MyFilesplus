@@ -263,6 +263,12 @@ class HomeViewModel(
         }
     }
 
+    fun deleteSelectedBrowserFiles(currentPath: String) {
+        val selected = _selectedBrowserFiles.value.toList()
+        if (selected.isEmpty()) return
+        deleteMultipleFiles(selected, currentPath)
+    }
+
     fun deleteMultipleFiles(paths: List<String>, currentPath: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -271,6 +277,7 @@ class HomeViewModel(
                 // Optimistic update
                 _rawFiles.value = currentFiles.filter { it.path !in paths }
                 sortFiles()
+                exitBrowserSelectionMode() // Exit mode immediately or after? Usually immediate for optimistic.
 
                 var successCount = 0
                 paths.forEach { 
@@ -282,9 +289,9 @@ class HomeViewModel(
                 sortFiles()
 
                 if (successCount == paths.size) {
-                    showMessage("Deleted $successCount items")
+                    showMessage("Moved $successCount items to Bin")
                 } else {
-                    showMessage("Deleted $successCount/${paths.size} items")
+                    showMessage("Moved $successCount/${paths.size} items to Bin")
                 }
             } catch (e: Exception) {
                 // Revert
@@ -322,6 +329,47 @@ class HomeViewModel(
     private val _recentFiles = MutableStateFlow<List<FileModel>>(emptyList())
     val recentFiles: StateFlow<List<FileModel>> = _recentFiles.asStateFlow()
 
+    private val _selectedRecentFiles = MutableStateFlow<Set<String>>(emptySet())
+    val selectedRecentFiles: StateFlow<Set<String>> = _selectedRecentFiles.asStateFlow()
+
+    private val _isRecentSelectionMode = MutableStateFlow(false)
+    val isRecentSelectionMode: StateFlow<Boolean> = _isRecentSelectionMode.asStateFlow()
+
+    // --- File Browser Selection State ---
+    private val _selectedBrowserFiles = MutableStateFlow<Set<String>>(emptySet())
+    val selectedBrowserFiles: StateFlow<Set<String>> = _selectedBrowserFiles.asStateFlow()
+
+    private val _isBrowserSelectionMode = MutableStateFlow(false)
+    val isBrowserSelectionMode: StateFlow<Boolean> = _isBrowserSelectionMode.asStateFlow()
+
+    fun toggleBrowserSelection(path: String) {
+        if (!_isBrowserSelectionMode.value) {
+            _isBrowserSelectionMode.value = true
+        }
+        val current = _selectedBrowserFiles.value.toMutableSet()
+        if (current.contains(path)) {
+            current.remove(path)
+        } else {
+            current.add(path)
+        }
+        _selectedBrowserFiles.value = current
+    }
+
+    fun selectAllBrowserFiles() {
+        _isBrowserSelectionMode.value = true
+        _selectedBrowserFiles.value = _files.value.map { it.path }.toSet()
+    }
+
+    fun exitBrowserSelectionMode() {
+        _isBrowserSelectionMode.value = false
+        _selectedBrowserFiles.value = emptySet()
+    }
+
+    fun clearBrowserSelection() {
+        _selectedBrowserFiles.value = emptySet()
+    }
+    // ------------------------------------
+
     fun loadRecentFiles() {
         viewModelScope.launch {
              try {
@@ -333,6 +381,70 @@ class HomeViewModel(
         }
     }
 
+    fun toggleRecentSelection(file: FileModel) {
+        if (!_isRecentSelectionMode.value) {
+            _isRecentSelectionMode.value = true
+        }
+        val current = _selectedRecentFiles.value.toMutableSet()
+        if (current.contains(file.path)) {
+            current.remove(file.path)
+        } else {
+            current.add(file.path)
+        }
+        _selectedRecentFiles.value = current
+        // Decide: check if empty to exit? 
+        // User requesting "unselect" to NOT redirect. 
+        // We will make exit explicit via back/close button, OR if user manually toggles off the last one?
+        // Standard behavior: manually toggling off last item -> exit. Unselect All -> Stay.
+        // Let's keep it manual toggle off -> exit for now? Or purely explicit?
+        // "pressing for unselect" usually means the button.
+        // I will make it purely explicit to be safe with user request.
+        // if (current.isEmpty()) _isRecentSelectionMode.value = false 
+    }
+
+    fun selectAllRecentFiles() {
+         _isRecentSelectionMode.value = true
+         _selectedRecentFiles.value = _recentFiles.value.map { it.path }.toSet()
+    }
+
+    fun exitRecentSelectionMode() {
+        _isRecentSelectionMode.value = false
+        _selectedRecentFiles.value = emptySet()
+    }
+
+    fun clearRecentSelection() {
+        // Just clear selection, but stay in mode
+        _selectedRecentFiles.value = emptySet()
+    }
+
+    fun deleteSelectedRecentFiles() {
+        val selectedPaths = _selectedRecentFiles.value.toList()
+        if (selectedPaths.isEmpty()) return
+        
+        viewModelScope.launch {
+            // Optimistic update
+            val currentRecents = _recentFiles.value
+            _recentFiles.value = currentRecents.filter { it.path !in selectedPaths }
+            // Do NOT call clearRecentSelection here, explicitly exit mode or not? 
+            // Usually after delete, we exit selection mode.
+            exitRecentSelectionMode() 
+
+            var successCount = 0
+            selectedPaths.forEach { path ->
+                if (repository.deleteFile(path)) successCount++
+            }
+            
+            if (successCount < selectedPaths.size) {
+                // Determine which failed? Reloading is safer
+                loadRecentFiles()
+                showMessage("Deleted $successCount/${selectedPaths.size} items")
+            } else {
+                showMessage("Deleted $successCount items")
+            }
+        }
+    }
+
+
     private val _trashedFiles = MutableStateFlow<List<com.mfp.filemanager.data.trash.TrashedFile>>(emptyList())
     val trashedFiles: StateFlow<List<com.mfp.filemanager.data.trash.TrashedFile>> = _trashedFiles.asStateFlow()
 
@@ -342,13 +454,40 @@ class HomeViewModel(
         }
     }
 
+    fun deleteRecentFile(file: FileModel) {
+        viewModelScope.launch {
+            // Optimistic update
+            val currentRecents = _recentFiles.value
+            _recentFiles.value = currentRecents.filter { it.path != file.path }
+            
+            if (repository.deleteFile(file.path)) {
+                showMessage("Deleted ${file.name}")
+            } else {
+                 // Revert
+                _recentFiles.value = currentRecents
+                showMessage("Error deleting file")
+            }
+        }
+    }
+
     fun restoreFiles(trashedFiles: List<com.mfp.filemanager.data.trash.TrashedFile>) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                trashedFiles.forEach { repository.restoreFile(it) }
+                var successCount = 0
+                trashedFiles.forEach { 
+                    if (repository.restoreFile(it)) successCount++
+                }
                 loadTrashedFiles()
                 _trashSize.value = repository.getTrashSize()
+                
+                if (successCount == trashedFiles.size) {
+                    showMessage("Restored $successCount items")
+                } else {
+                    showMessage("Restored $successCount/${trashedFiles.size} items")
+                }
+            } catch (e: Exception) {
+                showMessage("Restore failed: ${e.message}")
             } finally {
                 _isLoading.value = false
             }
@@ -359,9 +498,20 @@ class HomeViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                trashedFiles.forEach { repository.deleteFilePermanently(it) }
+                var successCount = 0
+                trashedFiles.forEach { 
+                    if (repository.deleteFilePermanently(it)) successCount++
+                }
                 loadTrashedFiles()
                 _trashSize.value = repository.getTrashSize()
+
+                if (successCount == trashedFiles.size) {
+                    showMessage("Deleted $successCount items permanently")
+                } else {
+                    showMessage("Deleted $successCount/${trashedFiles.size} items")
+                }
+            } catch (e: Exception) {
+                 showMessage("Delete failed: ${e.message}")
             } finally {
                 _isLoading.value = false
             }
@@ -457,9 +607,9 @@ class HomeViewModel(
 
         operationJob = viewModelScope.launch {
             _isLoading.value = true
+            val totalBatchSize = repository.getTotalSize(filesToPaste.map { it.path })
             val startTime = System.currentTimeMillis()
             var totalBytesCopied = 0L
-            val totalBatchSize = filesToPaste.sumOf { it.size }
             
             var allSuccess = true
             

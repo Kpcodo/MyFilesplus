@@ -48,7 +48,7 @@ fun FileItemMenu(
             DropdownMenuItem(
                 text = { Text("Extract") },
                 onClick = onExtract,
-                leadingIcon = { Icon(Icons.Default.DriveFileMove, contentDescription = null) }
+                leadingIcon = { Icon(androidx.compose.material.icons.filled.FolderZip, contentDescription = null) }
             )
         }
         if (onDelete != null) {
@@ -59,7 +59,7 @@ fun FileItemMenu(
             )
         }
         DropdownMenuItem(
-            text = { Text("Folder Info") },
+            text = { Text("Details") },
             onClick = onInfo,
             leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
         )

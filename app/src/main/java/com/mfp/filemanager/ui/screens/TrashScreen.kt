@@ -3,7 +3,7 @@ package com.mfp.filemanager.ui.screens
 import android.annotation.SuppressLint
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -42,8 +45,8 @@ import com.mfp.filemanager.data.trash.TrashedFile
 
 private enum class DialogType {
     NONE,
-    RESTORE_SELECTED,
-    DELETE_SELECTED,
+    DELETE_SINGLE,
+    RESTORE_SINGLE,
     RESTORE_ALL,
     EMPTY_TRASH
 }
@@ -58,42 +61,52 @@ fun TrashScreen(
 ) {
     val trashedFilesState by viewModel.trashedFiles.collectAsState()
     val loadingState by viewModel.isLoading.collectAsState()
+    val swipeDeleteEnabled by viewModel.swipeDeleteEnabled.collectAsState()
 
-    var selectionMode by remember { mutableStateOf(false) }
-    var selectedItems by remember { mutableStateOf(setOf<TrashedFile>()) }
     var shownDialog by remember { mutableStateOf(DialogType.NONE) }
+    var fileToDelete by remember { mutableStateOf<TrashedFile?>(null) }
+    var fileToRestore by remember { mutableStateOf<TrashedFile?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadTrashedFiles()
     }
 
     when (shownDialog) {
-        DialogType.RESTORE_SELECTED -> {
-            ConfirmationDialog(
-                title = stringResource(R.string.restore_files_title),
-                message = stringResource(R.string.restore_files_message),
-                onConfirm = {
-                    viewModel.restoreFiles(selectedItems.toList())
-                    selectionMode = false
-                    selectedItems = setOf()
-                    shownDialog = DialogType.NONE
-                },
-                onDismiss = { shownDialog = DialogType.NONE }
-            )
+        DialogType.RESTORE_SINGLE -> {
+            fileToRestore?.let { file ->
+                ConfirmationDialog(
+                    title = "Restore File",
+                    message = "Are you sure you want to restore ${file.name} to its original location?",
+                    onConfirm = {
+                        viewModel.restoreFiles(listOf(file))
+                        shownDialog = DialogType.NONE
+                        fileToRestore = null
+                    },
+                    onDismiss = {
+                        shownDialog = DialogType.NONE
+                        fileToRestore = null
+                    }
+                )
+            }
         }
-        DialogType.DELETE_SELECTED -> {
-            ConfirmationDialog(
-                title = stringResource(R.string.delete_permanently_title),
-                message = stringResource(R.string.delete_permanently_message),
-                onConfirm = {
-                    viewModel.deleteFilesPermanently(selectedItems.toList())
-                    selectionMode = false
-                    selectedItems = setOf()
-                    shownDialog = DialogType.NONE
-                },
-                onDismiss = { shownDialog = DialogType.NONE }
-            )
+        DialogType.DELETE_SINGLE -> {
+            fileToDelete?.let { file ->
+                ConfirmationDialog(
+                    title = stringResource(R.string.delete_permanently_title),
+                    message = stringResource(R.string.delete_permanently_message),
+                    onConfirm = {
+                        viewModel.deleteFilesPermanently(listOf(file))
+                        shownDialog = DialogType.NONE
+                        fileToDelete = null
+                    },
+                    onDismiss = { 
+                        shownDialog = DialogType.NONE
+                        fileToDelete = null
+                    }
+                )
+            }
         }
+
         DialogType.RESTORE_ALL -> {
             ConfirmationDialog(
                 title = stringResource(R.string.restore_all_title),
@@ -121,17 +134,7 @@ fun TrashScreen(
 
     Scaffold(
         topBar = {
-            if (selectionMode) {
-                TrashSelectionTopAppBar(
-                    selectedItemCount = selectedItems.size,
-                    onClearSelection = {
-                        selectionMode = false
-                        selectedItems = setOf()
-                    },
-                    onRestore = { shownDialog = DialogType.RESTORE_SELECTED },
-                    onDeleteForever = { shownDialog = DialogType.DELETE_SELECTED }
-                )
-            } else if (showTopBar) {
+            if (showTopBar) {
                 TrashTopAppBar(
                     onBack = onBack
                 )
@@ -186,21 +189,51 @@ fun TrashScreen(
                 } else {
                     LazyColumn {
                         items(trashedFilesState, key = { it.id }) { file ->
-                            TrashedItem(
-                                file = file,
-                                isSelected = file in selectedItems,
-                                selectionMode = selectionMode,
-                                onClick = {
-                                    if (selectionMode) {
-                                        selectedItems = if (file in selectedItems) selectedItems - file else selectedItems + file
-                                        if (selectedItems.isEmpty()) selectionMode = false
+                             // Swipe to Delete (Permanently) - EndToStart
+                             val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { value ->
+                                    if (value == SwipeToDismissBoxValue.EndToStart) {
+                                        fileToDelete = file
+                                        shownDialog = DialogType.DELETE_SINGLE
+                                        false 
                                     } else {
-                                        // Single tap could open restore/delete dialog for that one item
+                                        false
+                                    }
+                                }
+                            )
+
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                backgroundContent = {
+                                    val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                                        MaterialTheme.colorScheme.errorContainer
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(color)
+                                            .padding(horizontal = 20.dp),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        Icon(
+                                            Icons.Default.DeleteForever,
+                                            contentDescription = "Delete Forever",
+                                            tint = MaterialTheme.colorScheme.onErrorContainer
+                                        )
                                     }
                                 },
-                                onLongClick = {
-                                    if (!selectionMode) selectionMode = true
-                                    selectedItems = selectedItems + file
+                                enableDismissFromStartToEnd = false,
+                                enableDismissFromEndToStart = swipeDeleteEnabled, // Only delete forever
+                                content = {
+                                    TrashedItem(
+                                        file = file,
+                                        onClick = {
+                                             fileToRestore = file
+                                             shownDialog = DialogType.RESTORE_SINGLE
+                                        }
+                                    )
                                 }
                             )
                         }
@@ -250,47 +283,17 @@ fun TrashTopAppBar(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TrashSelectionTopAppBar(
-    selectedItemCount: Int,
-    onClearSelection: () -> Unit,
-    onRestore: () -> Unit,
-    onDeleteForever: () -> Unit
-) {
-    TopAppBar(
-        title = { Text(stringResource(R.string.selected_count, selectedItemCount)) },
-        navigationIcon = {
-            IconButton(onClick = onClearSelection) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.clear_selection_desc))
-            }
-        },
-        actions = {
-            IconButton(onClick = onRestore) {
-                Icon(Icons.Default.Restore, contentDescription = stringResource(R.string.action_restore))
-            }
-            IconButton(onClick = onDeleteForever) {
-                Icon(Icons.Default.DeleteForever, contentDescription = stringResource(R.string.action_delete_forever))
-            }
-        }
-    )
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrashedItem(
     file: TrashedFile,
-    isSelected: Boolean,
-    selectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onClick: () -> Unit
 ) {
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .background(backgroundColor)
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -338,9 +341,6 @@ fun TrashedItem(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-        if (selectionMode) {
-            Checkbox(checked = isSelected, onCheckedChange = { onClick() }, modifier = Modifier.padding(start = 16.dp))
         }
     }
 }

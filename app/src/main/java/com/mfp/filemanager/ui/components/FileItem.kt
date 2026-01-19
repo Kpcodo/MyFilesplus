@@ -47,14 +47,15 @@ fun DetailedFileItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onMenuAction: (String) -> Unit,
+    modifier: Modifier = Modifier,
     allowDelete: Boolean = true,
     showMenuButton: Boolean = true
 ) {
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
     var showMenu by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(backgroundColor)

@@ -138,7 +138,7 @@ class TrashManager(private val context: Context) {
     suspend fun deletePermanently(trashedFile: TrashedFile): Boolean = withContext(Dispatchers.IO) {
         val fileInTrash = File(trashedFile.trashPath)
         if (fileInTrash.exists()) {
-            if (fileInTrash.delete()) {
+            if (fileInTrash.deleteRecursively()) {
                 removeMetadata(trashedFile)
                 return@withContext true
             }
@@ -152,7 +152,7 @@ class TrashManager(private val context: Context) {
     
     suspend fun emptyTrash(): Boolean = withContext(Dispatchers.IO) {
         try {
-            trashDir.listFiles()?.forEach { it.delete() }
+            trashDir.listFiles()?.forEach { it.deleteRecursively() }
             if (metadataFile.exists()) {
                 metadataFile.delete()
             }

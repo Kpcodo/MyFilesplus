@@ -42,8 +42,12 @@ class FileRepository(private val context: Context) {
         }
 
         val files = directory.listFiles()
+        val mimeMap = android.webkit.MimeTypeMap.getSingleton()
         files?.mapNotNull { file ->
-            val mimeType = if (file.isFile) context.contentResolver.getType(Uri.fromFile(file)) else null
+            val ext = file.extension.lowercase()
+            val mimeType = if (file.isFile) {
+                mimeMap.getMimeTypeFromExtension(ext) ?: context.contentResolver.getType(Uri.fromFile(file))
+            } else null
             val itemCount = if (file.isDirectory) file.list()?.size ?: 0 else 0
             FileModel(
                 id = file.hashCode().toLong(), // Simple ID
@@ -821,19 +825,28 @@ class FileRepository(private val context: Context) {
         return@withContext true
     }
     
-    private fun calculateDirectorySize(dir: File): Long {
+    fun calculateDirectorySize(dir: File): Long {
         var size = 0L
         val files = dir.listFiles() ?: return 0L
         
         for (file in files) {
             size += if (file.isDirectory) {
-                calculateDirectorySize(file)
+                if (file.name != "." && file.name != "..") {
+                    calculateDirectorySize(file)
+                } else 0L
             } else {
                 file.length()
             }
         }
         
         return size
+    }
+
+    suspend fun getTotalSize(paths: List<String>): Long = withContext(Dispatchers.IO) {
+        paths.sumOf { path ->
+            val file = File(path)
+            if (file.isDirectory) calculateDirectorySize(file) else file.length()
+        }
     }
 
     suspend fun moveFile(sourcePath: String, destPath: String, onProgress: ((Long, Long) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {

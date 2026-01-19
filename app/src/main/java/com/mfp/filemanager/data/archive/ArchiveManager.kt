@@ -25,35 +25,36 @@ class ArchiveManager {
     }
 
     private fun extractEntry(ais: ArchiveInputStream<*>, destinationDir: File) {
-        var entry: ArchiveEntry? = ais.nextEntry
-        while (entry != null) {
-            val outputFile = File(destinationDir, entry.name)
-            
-            // Security check for Zip Slip vulnerability
-            if (!outputFile.canonicalPath.startsWith(destinationDir.canonicalPath + File.separator)) {
-                 throw SecurityException("Zip Path Traversal Attempt: " + entry.name)
-            }
-
-            if (entry.isDirectory) {
-                if (!outputFile.isDirectory && !outputFile.mkdirs()) {
-                    throw java.io.IOException("Failed to create directory " + outputFile)
-                }
-            } else {
-                val parent = outputFile.parentFile
-                if (!parent.isDirectory && !parent.mkdirs()) {
-                    throw java.io.IOException("Failed to create directory " + parent)
-                }
+        ais.use { input ->
+            var entry: ArchiveEntry? = input.nextEntry
+            while (entry != null) {
+                val outputFile = File(destinationDir, entry.name)
                 
-                val ops = BufferedOutputStream(FileOutputStream(outputFile))
-                val buffer = ByteArray(4096)
-                var len: Int
-                while (ais.read(buffer).also { len = it } != -1) {
-                    ops.write(buffer, 0, len)
+                // Security check for Zip Slip vulnerability
+                if (!outputFile.canonicalPath.startsWith(destinationDir.canonicalPath + File.separator)) {
+                    throw SecurityException("Zip Path Traversal Attempt: " + entry.name)
                 }
-                ops.close()
+
+                if (entry.isDirectory) {
+                    if (!outputFile.isDirectory && !outputFile.mkdirs()) {
+                        throw java.io.IOException("Failed to create directory $outputFile")
+                    }
+                } else {
+                    val parent = outputFile.parentFile
+                    if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                        throw java.io.IOException("Failed to create directory $parent")
+                    }
+                    
+                    FileOutputStream(outputFile).buffered().use { ops ->
+                        val buffer = ByteArray(8192)
+                        var len: Int
+                        while (input.read(buffer).also { len = it } != -1) {
+                            ops.write(buffer, 0, len)
+                        }
+                    }
+                }
+                entry = input.nextEntry
             }
-            entry = ais.nextEntry
         }
-        ais.close()
     }
 }
