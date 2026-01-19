@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -48,7 +49,7 @@ fun FileItemMenu(
             DropdownMenuItem(
                 text = { Text("Extract") },
                 onClick = onExtract,
-                leadingIcon = { Icon(androidx.compose.material.icons.filled.FolderZip, contentDescription = null) }
+                leadingIcon = { Icon(Icons.Default.FolderZip, contentDescription = null) }
             )
         }
         if (onDelete != null) {
