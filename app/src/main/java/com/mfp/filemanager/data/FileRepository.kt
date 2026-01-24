@@ -95,16 +95,16 @@ class FileRepository(private val context: Context) {
 
     suspend fun deleteFile(path: String): Boolean = trashManager.moveToTrash(File(path))
 
-    suspend fun deleteFilesBatch(paths: List<String>): Boolean = withContext(Dispatchers.IO) {
+    suspend fun deleteFilesBatch(paths: List<String>, onProgress: ((Float) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
         val files = paths.map { File(it) }
-        trashManager.moveToTrashBatch(files)
+        trashManager.moveToTrashBatch(files, onProgress)
     }
 
     suspend fun getTrashedFiles(): List<TrashedFile> = trashManager.getTrashedFiles()
 
     suspend fun restoreFile(trashedFile: TrashedFile): Boolean = trashManager.restoreFromTrash(trashedFile)
 
-    suspend fun restoreFilesBatch(trashedFiles: List<TrashedFile>): Boolean = trashManager.restoreBatch(trashedFiles)
+    suspend fun restoreFilesBatch(trashedFiles: List<TrashedFile>, onProgress: ((Float) -> Unit)? = null): Boolean = trashManager.restoreBatch(trashedFiles, onProgress)
 
     suspend fun restoreAllFiles(): Boolean = trashManager.restoreAll()
 
@@ -418,6 +418,19 @@ class FileRepository(private val context: Context) {
         val selection: String?
         val selectionArgs: Array<String>?
 
+        if (category == FileType.AUDIO) {
+            val audioProjection = projection + arrayOf(MediaStore.Audio.Media.ARTIST)
+            val audioUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            } else {
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            }
+            context.contentResolver.query(audioUri, audioProjection, null, null, sortOrder)?.use { cursor ->
+                files.addAll(mapCursorToFiles(cursor))
+            }
+            return@withContext files
+        }
+
         if (category == FileType.DOWNLOAD && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             queryUri = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL)
             selection = null
@@ -449,6 +462,8 @@ class FileRepository(private val context: Context) {
         val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)
         val mimeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)
 
+        val artistColumn = cursor.getColumnIndex(MediaStore.Audio.AudioColumns.ARTIST)
+
         while (cursor.moveToNext()) {
             val id = cursor.getLong(idColumn)
             val name = cursor.getString(nameColumn) ?: "Unknown"
@@ -456,9 +471,10 @@ class FileRepository(private val context: Context) {
             val size = cursor.getLong(sizeColumn)
             val date = cursor.getLong(dateColumn) * 1000 // Convert seconds to milliseconds
             val mimeType = cursor.getString(mimeColumn) ?: "*/*"
+            val artist = if (artistColumn != -1) cursor.getString(artistColumn) else null
             
             val isDir = if (path.isNotEmpty()) java.io.File(path).isDirectory else false
-            files.add(FileModel(id, name, path, size, date, mimeType, determineFileType(mimeType, name), isDir, 0))
+            files.add(FileModel(id, name, path, size, date, mimeType, determineFileType(mimeType, name), isDir, 0, artist))
         }
         return files
     }
@@ -530,8 +546,8 @@ class FileRepository(private val context: Context) {
 
     private val archiveManager = ArchiveManager()
 
-    suspend fun extractArchive(sourcePath: String, destinationPath: String): Boolean = withContext(Dispatchers.IO) {
-        archiveManager.extractArchive(File(sourcePath), File(destinationPath))
+    suspend fun extractArchive(sourcePath: String, destinationPath: String, onProgress: ((Float) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
+        archiveManager.extractArchive(File(sourcePath), File(destinationPath), onProgress)
     }
 
     @Suppress("DEPRECATION")
@@ -733,6 +749,7 @@ class FileRepository(private val context: Context) {
     
 
     suspend fun copyFile(sourcePath: String, destPath: String, onProgress: ((Long, Long) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
+        var destFile: File? = null
         try {
             android.util.Log.d("FileRepository", "copyFile: source=$sourcePath, dest=$destPath")
             val sourceFile = File(sourcePath)
@@ -742,32 +759,31 @@ class FileRepository(private val context: Context) {
                 return@withContext false
             }
             
-            var destFile = File(destPath, sourceFile.name)
-            android.util.Log.d("FileRepository", "copyFile: Initial destFile=${destFile.absolutePath}")
+            var targetFile = File(destPath, sourceFile.name)
             
             // Auto-rename if exists
             var counter = 1
             val nameWithoutExt = sourceFile.nameWithoutExtension
             val ext = sourceFile.extension.let { if (it.isNotEmpty()) ".$it" else "" }
             
-            while (destFile.exists()) {
-                destFile = File(destPath, "$nameWithoutExt ($counter)$ext")
+            while (targetFile.exists()) {
+                targetFile = File(destPath, "$nameWithoutExt ($counter)$ext")
                 counter++
             }
+            destFile = targetFile
             
-            android.util.Log.d("FileRepository", "copyFile: Final destFile=${destFile.absolutePath}, isDirectory=${sourceFile.isDirectory}")
+            android.util.Log.d("FileRepository", "copyFile: Final destFile=${targetFile.absolutePath}, isDirectory=${sourceFile.isDirectory}")
             
             if (sourceFile.isDirectory) {
-                // Handle directory copying
-                return@withContext copyDirectory(sourceFile, destFile, onProgress)
+                return@withContext copyDirectory(sourceFile, targetFile, onProgress)
             } else {
-                // Handle single file copying
                 val totalSize = sourceFile.length()
                 var bytesCopied = 0L
-                val buffer = ByteArray(256 * 1024) // 256KB buffer
+                val bufferSize = 64 * 1024 // 64KB is generally optimal for Android
+                val buffer = ByteArray(bufferSize)
                 
                 sourceFile.inputStream().use { input ->
-                    destFile.outputStream().use { output ->
+                    targetFile.outputStream().use { output ->
                         var bytes = input.read(buffer)
                         while (bytes >= 0) {
                             output.write(buffer, 0, bytes)
@@ -778,14 +794,14 @@ class FileRepository(private val context: Context) {
                     }
                 }
                 
-                val success = true
-                scanFile(destFile.absolutePath)
+                scanFile(targetFile.absolutePath)
                 android.util.Log.d("FileRepository", "copyFile: Success! Copied $bytesCopied bytes")
-                return@withContext success
+                return@withContext true
             }
         } catch (e: Exception) {
             android.util.Log.e("FileRepository", "copyFile: Exception", e)
-            e.printStackTrace()
+            // Cleanup partial file on failure
+            destFile?.let { if (it.exists()) it.deleteRecursively() }
             return@withContext false
         }
     }
@@ -885,9 +901,11 @@ class FileRepository(private val context: Context) {
     suspend fun moveFile(sourcePath: String, destPath: String, onProgress: ((Long, Long) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             val sourceFile = File(sourcePath)
+            if (!sourceFile.exists()) return@withContext false
+
             var destFile = File(destPath, sourceFile.name)
 
-            // Auto-rename logic for Move as well
+            // Auto-rename logic for Move
             var counter = 1
             val nameWithoutExt = sourceFile.nameWithoutExtension
             val ext = sourceFile.extension.let { if (it.isNotEmpty()) ".$it" else "" }
@@ -901,37 +919,50 @@ class FileRepository(private val context: Context) {
             if (sourceFile.renameTo(destFile)) {
                 scanFile(sourcePath)
                 scanFile(destFile.absolutePath)
-                onProgress?.invoke(sourceFile.length(), sourceFile.length()) // Instant 100%
+                onProgress?.invoke(sourceFile.length(), sourceFile.length())
                 return@withContext true
             }
 
             // Fallback to Copy-Delete
-            if (copyFile(sourcePath, destPath, onProgress)) {
-                val deleted = sourceFile.deleteRecursively()
-                if (deleted) {
+            val copied = copyFile(sourcePath, destPath, onProgress)
+            if (copied) {
+                // Determine the actual path of the copied file (in case of auto-rename)
+                // We need to be careful here because copyFile handles auto-rename internally.
+                // However, destFile constructed above should match what copyFile used if logic is identical.
+                val success = sourceFile.deleteRecursively()
+                if (success) {
                     scanFile(sourcePath)
                 }
-                return@withContext deleted
+                return@withContext success
             }
             return@withContext false
 
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("FileRepository", "moveFile: Exception", e)
             return@withContext false
         }
     }
 
     suspend fun getAverageDailyUsageBytes(): Long = withContext(Dispatchers.IO) {
         val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
-        val projection = arrayOf("sum(${MediaStore.Files.FileColumns.SIZE})")
+        val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
         val selection = "${MediaStore.Files.FileColumns.DATE_MODIFIED} > ?"
         val selectionArgs = arrayOf((thirtyDaysAgo / 1000).toString())
-        val queryUri = MediaStore.Files.getContentUri("external")
+        
+        val queryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Files.getContentUri("external")
+        }
+        
         var recentUsageBytes: Long = 0
         try {
             context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    recentUsageBytes = cursor.getLong(0)
+                val sizeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.SIZE)
+                if (sizeIndex != -1) {
+                    while (cursor.moveToNext()) {
+                        recentUsageBytes += cursor.getLong(sizeIndex)
+                    }
                 }
             }
         } catch (e: Exception) {

@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.ExperimentalFoundationApi
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.data.FileUtils
@@ -35,6 +37,10 @@ fun CleanupRecommendationsScreen(
 ) {
     val largeFiles by viewModel.largeFiles.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadForecastDetails()
+    }
 
     // Selection state: Set of Strings (Paths)
     val selectedPaths = remember { mutableStateListOf<String>() }
@@ -133,6 +139,7 @@ fun CleanupRecommendationsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecommendationItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -182,7 +189,8 @@ fun RecommendationItem(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.basicMarquee()
             )
             Text(
                 text = subtitle,

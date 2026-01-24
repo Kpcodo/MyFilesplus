@@ -4,10 +4,9 @@ import android.os.Bundle
 import android.os.Environment
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +18,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.outlined.MusicNote
+import java.io.File
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -67,11 +69,19 @@ import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import com.mfp.filemanager.ui.viewmodels.HomeViewModelFactory
 import com.mfp.filemanager.ui.screens.MediaViewerScreen
 import com.mfp.filemanager.ui.screens.TextViewerScreen
+import com.mfp.filemanager.ui.screens.MusicScreen
+import com.mfp.filemanager.ui.screens.FullPlayerScreen
 import com.mfp.filemanager.security.AppPermissionHandler
 import com.mfp.filemanager.ui.theme.FileManagerTheme
+import com.mfp.filemanager.ui.viewmodels.AudioViewModel
+import com.mfp.filemanager.ui.components.MiniPlayer
+import androidx.compose.runtime.LaunchedEffect
 import java.net.URLDecoder
 import java.net.URLEncoder
 import android.widget.Toast
+import com.mfp.filemanager.ui.animations.MotionHardwareProvider
+import com.mfp.filemanager.ui.animations.AppMotion
+import com.mfp.filemanager.ui.animations.LocalMotionScale
 import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
@@ -117,7 +127,9 @@ class MainActivity : ComponentActivity() {
                             CompositionLocalProvider(
                                 LocalAnimationSpeed provides settingsState.animationSpeed
                             ) {
-                                MainScreen(viewModel, settingsViewModel)
+                                MotionHardwareProvider {
+                                    MainScreen(viewModel, settingsViewModel)
+                                }
                             }
                         }
                     )
@@ -139,9 +151,21 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
 
     val bottomNavItems = listOf(
         BottomNavItem.Home,
+        BottomNavItem.Music,
         BottomNavItem.Trash,
         BottomNavItem.Settings
     )
+
+    val audioViewModel: AudioViewModel = viewModel()
+    val isPlaying by audioViewModel.isPlaying.collectAsState()
+    val currentTrack by audioViewModel.currentTrack.collectAsState()
+
+    LaunchedEffect(Unit) {
+        audioViewModel.initializeController(context)
+    }
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route ?: "home"
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Animate blur radius for smooth transitions
@@ -158,18 +182,17 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
             topBar = {
                 // If Swipe Navigation is enabled, Show a Global Top Bar
                 if (settingsState.isSwipeNavigationEnabled) {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentRoute = navBackStackEntry?.destination?.route
                     
                     val title = when (currentRoute) {
                         "home" -> "Home"
+                        "music" -> "Music"
                         "trash" -> "Bin"
                         "settings" -> "Settings"
                         else -> "File Manager" // Fallback or empty
                     }
 
                     // Only show for main tabs
-                    if (currentRoute in listOf("home", "trash", "settings")) {
+                    if (currentRoute in listOf("home", "music", "trash", "settings")) {
                        androidx.compose.material3.CenterAlignedTopAppBar(
                            title = { Text(title) }
                        )
@@ -177,33 +200,30 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
                 }
             },
             bottomBar = {
-                // Hide Bottom Bar if Swipe Navigation is enabled
-                if (!settingsState.isSwipeNavigationEnabled) {
+                // NavigationBar only, to keep padding constant and avoid jumps
+                if (!settingsState.isSwipeNavigationEnabled && currentRoute != "full_player") {
                     NavigationBar {
-                        val navBackStackEntry by navController.currentBackStackEntryAsState()
-                        val currentRoute = navBackStackEntry?.destination?.route
-
                         bottomNavItems.forEach { item ->
                             val selected = currentRoute == item.route
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = {
-                                    navController.navigate(item.route) {
-                                        popUpTo(navController.graph.startDestinationId)
-                                        launchSingleTop = true
-                                    }
-                                },
-                                icon = { 
-                                    Icon(
-                                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon, 
-                                        contentDescription = item.title,
-                                        modifier = Modifier.bounceClick()
-                                    )
-                                 },
-                                label = { Text(item.title) }
-                            )
+                                NavigationBarItem(
+                                    selected = selected,
+                                    onClick = {
+                                        navController.navigate(item.route) {
+                                            popUpTo(navController.graph.startDestinationId)
+                                            launchSingleTop = true
+                                        }
+                                    },
+                                    icon = { 
+                                        Icon(
+                                            imageVector = if (selected) item.selectedIcon else item.unselectedIcon, 
+                                            contentDescription = item.title,
+                                            modifier = Modifier.bounceClick()
+                                        )
+                                     },
+                                    label = { Text(item.title) }
+                                )
+                            }
                         }
-                    }
                 }
             }
         ) { innerPadding ->
@@ -235,12 +255,14 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
 
                             if (totalDrag < 0) { // Swipe Left (Next)
                                 when (currentRoute) {
-                                    "home" -> navController.navigate("trash") { popUpTo("home"); launchSingleTop = true }
+                                    "home" -> navController.navigate("music") { popUpTo("home"); launchSingleTop = true }
+                                    "music" -> navController.navigate("trash") { popUpTo("home"); launchSingleTop = true }
                                     "trash" -> navController.navigate("settings") { popUpTo("home"); launchSingleTop = true }
                                 }
                             } else { // Swipe Right (Previous)
                                 when (currentRoute) {
-                                    "trash" -> navController.navigate("home") { popUpTo("home"); launchSingleTop = true }
+                                    "music" -> navController.navigate("home") { popUpTo("home"); launchSingleTop = true }
+                                    "trash" -> navController.navigate("music") { popUpTo("home"); launchSingleTop = true }
                                     "settings" -> navController.navigate("trash") { popUpTo("home"); launchSingleTop = true }
                                 }
                             }
@@ -252,14 +274,44 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
                 Modifier
             }
 
-            AppNavigation(
-                navController = navController,
-                viewModel = viewModel,
-                settingsViewModel = settingsViewModel,
-                modifier = Modifier.padding(innerPadding).then(swipeModifier),
-                onRequestSearch = { showSearchOverlay = true },
-                isSwipeEnabled = settingsState.isSwipeNavigationEnabled
-            )
+            // High Performance Content Layout
+            val hasMiniPlayer = currentTrack != null && currentRoute != "full_player"
+            
+            Box(modifier = Modifier.fillMaxSize()) {
+                AppNavigation(
+                    navController = navController,
+                    viewModel = viewModel,
+                    settingsViewModel = settingsViewModel,
+                    modifier = Modifier
+                        .padding(
+                            bottom = innerPadding.calculateBottomPadding() + (if (hasMiniPlayer) 64.dp else 0.dp),
+                            top = innerPadding.calculateTopPadding()
+                        )
+                        .then(swipeModifier),
+                    onRequestSearch = { showSearchOverlay = true },
+                    isSwipeEnabled = settingsState.isSwipeNavigationEnabled,
+                    audioViewModel = audioViewModel
+                )
+
+                // Floating MiniPlayer Overlay - Decoupled from Scaffold layout to prevent jitter
+                AnimatedVisibility(
+                    visible = hasMiniPlayer,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = innerPadding.calculateBottomPadding()),
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(tween(300)),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(tween(300))
+                ) {
+                    MiniPlayer(
+                        metadata = currentTrack,
+                        isPlaying = isPlaying,
+                        onTogglePlay = { audioViewModel.togglePlayPause() },
+                        onNext = { audioViewModel.playNext() },
+                        onPrevious = { audioViewModel.playPrevious() },
+                        onClick = { navController.navigate("full_player") }
+                    )
+                }
+            }
         }
 
         // Search Overlay
@@ -273,6 +325,9 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
                     viewModel.setMediaContext(viewModel.searchResults.value)
                     val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                     navController.navigate("media_viewer/$encodedPath")
+                } else if (file.type == FileType.AUDIO) {
+                    audioViewModel.playFile(File(file.path))
+                    navController.navigate("full_player")
                 } else {
                     // Navigate to the file's location (parent folder)
                     val targetFile = java.io.File(file.path)
@@ -281,6 +336,20 @@ fun MainScreen(viewModel: HomeViewModel, settingsViewModel: SettingsViewModel) {
                     navController.navigate("file_browser/$encodedPath")
                 }
             }
+        )
+
+        // Unified Global Operation Progress Banner
+        val operationStatus by viewModel.operationStatus.collectAsState()
+
+        // Only show padding if bottom bar is visible (not media viewer, and swipe nav disabled)
+        val hasBottomBar = !settingsState.isSwipeNavigationEnabled && currentRoute in listOf("home", "trash", "settings")
+        
+        com.mfp.filemanager.ui.components.OperationProgressBanner(
+            status = operationStatus,
+            onCancel = { viewModel.cancelOperation() },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = if (hasBottomBar) 80.dp else 16.dp)
         )
     }
 }
@@ -292,35 +361,19 @@ fun AppNavigation(
     settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
     onRequestSearch: () -> Unit,
-    isSwipeEnabled: Boolean
+    isSwipeEnabled: Boolean,
+    audioViewModel: AudioViewModel
 ) {
     val context = LocalContext.current
     val settingsState by settingsViewModel.settingsState.collectAsState()
-    
-    val animSpeed = LocalAnimationSpeed.current
-    // Increase base stiffness from 400 to 800 for snappier, more stable transitions
-    val baseStiffness = 800f 
-    val effectiveStiffness = if (animSpeed > 0) baseStiffness * (animSpeed * animSpeed) else baseStiffness
+    val motionScale = LocalMotionScale.current
+    val fadeDuration = (AppMotion.BaseDuration.Fast * motionScale).toInt()
     
     NavHost(navController = navController, startDestination = "home", modifier = modifier) {
         composable(
             route = "home",
-            enterTransition = {
-                val from = initialState.destination.route
-                if (from == "trash" || from == "settings") {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
-                } else {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) // Fallback or distinct
-                }
-            },
-            exitTransition = {
-                val to = targetState.destination.route
-                if (to == "trash" || to == "settings") {
-                     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
-                } else {
-                     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
-                }
-            }
+            enterTransition = { fadeIn(tween(fadeDuration)) },
+            exitTransition = { fadeOut(tween(fadeDuration)) }
         ) {
             HomeScreen(
                 viewModel = viewModel,
@@ -347,7 +400,10 @@ fun AppNavigation(
                     navController.navigate("forecast_detail")
                 },
                 onRecentFileClick = { file ->
-                    if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
+                    if (file.type == FileType.AUDIO) {
+                        audioViewModel.playFile(File(file.path))
+                        navController.navigate("full_player")
+                    } else if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
                         viewModel.setMediaContext(viewModel.recentFiles.value)
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                         navController.navigate("media_viewer/$encodedPath")
@@ -366,16 +422,19 @@ fun AppNavigation(
 
         composable(
             route = "recents",
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) }
+            enterTransition = { fadeIn(tween(fadeDuration)) },
+            exitTransition = { fadeOut(tween(fadeDuration)) },
+            popEnterTransition = { fadeIn(tween(fadeDuration)) },
+            popExitTransition = { fadeOut(tween(fadeDuration)) }
         ) {
             RecentsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onFileClick = { file ->
-                    if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
+                    if (file.type == FileType.AUDIO) {
+                        audioViewModel.playFile(File(file.path))
+                        navController.navigate("full_player")
+                    } else if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
                         viewModel.setMediaContext(viewModel.recentFiles.value)
                         val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                         navController.navigate("media_viewer/$encodedPath")
@@ -392,22 +451,8 @@ fun AppNavigation(
 
         composable(
             route = "trash",
-            enterTransition = {
-                val from = initialState.destination.route
-                if (from == "settings") {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
-                } else {
-                     slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
-                }
-            },
-            exitTransition = {
-                 val to = targetState.destination.route
-                 if (to == "settings") {
-                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness))
-                 } else {
-                      slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness))
-                 }
-            }
+            enterTransition = { fadeIn(tween(fadeDuration)) },
+            exitTransition = { fadeOut(tween(fadeDuration)) }
         ) {
             com.mfp.filemanager.ui.screens.TrashScreen(
                 viewModel = viewModel,
@@ -437,10 +482,10 @@ fun AppNavigation(
 
         composable(
             route = "settings",
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) }
+            enterTransition = { fadeIn(tween(fadeDuration)) },
+            exitTransition = { fadeOut(tween(fadeDuration)) },
+            popEnterTransition = { fadeIn(tween(fadeDuration)) },
+            popExitTransition = { fadeOut(tween(fadeDuration)) }
         ) {
             SettingsScreen(
                 viewModel = settingsViewModel,
@@ -456,10 +501,10 @@ fun AppNavigation(
                 navArgument("path") { type = NavType.StringType },
                 navArgument("title") { type = NavType.StringType; nullable = true; defaultValue = null }
             ),
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(stiffness = effectiveStiffness)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(stiffness = effectiveStiffness)) }
+            enterTransition = { fadeIn(tween(fadeDuration)) },
+            exitTransition = { fadeOut(tween(fadeDuration)) },
+            popEnterTransition = { fadeIn(tween(fadeDuration)) },
+            popExitTransition = { fadeOut(tween(fadeDuration)) }
         ) { backStackEntry ->
             val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
             val path = URLDecoder.decode(encodedPath, "UTF-8")
@@ -483,7 +528,10 @@ fun AppNavigation(
                         // So we DON'T pass title for subfolders, letting them show their own names.
                         navController.navigate("file_browser/$encodedPath")
                     } else {
-                        if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
+                        if (file.type == FileType.AUDIO) {
+                            audioViewModel.playFile(File(file.path))
+                            navController.navigate("full_player")
+                        } else if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
                             viewModel.setMediaContext(viewModel.files.value)
                             val encodedPath = URLEncoder.encode(file.path, "UTF-8")
                             navController.navigate("media_viewer/$encodedPath")
@@ -505,7 +553,11 @@ fun AppNavigation(
 
         composable(
             route = "media_viewer/{path}",
-            arguments = listOf(navArgument("path") { type = NavType.StringType })
+            arguments = listOf(navArgument("path") { type = NavType.StringType }),
+            enterTransition = { fadeIn(tween(fadeDuration)) },
+            exitTransition = { fadeOut(tween((fadeDuration * 0.7f).toInt())) },
+            popEnterTransition = { fadeIn(tween(fadeDuration)) },
+            popExitTransition = { fadeOut(tween((fadeDuration * 0.7f).toInt())) }
         ) { backStackEntry ->
             val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
             val path = URLDecoder.decode(encodedPath, "UTF-8")
@@ -518,7 +570,11 @@ fun AppNavigation(
 
         composable(
             route = "text_viewer/{path}",
-            arguments = listOf(navArgument("path") { type = NavType.StringType })
+            arguments = listOf(navArgument("path") { type = NavType.StringType }),
+            enterTransition = { fadeIn(tween(fadeDuration)) },
+            exitTransition = { fadeOut(tween(fadeDuration)) },
+            popEnterTransition = { fadeIn(tween(fadeDuration)) },
+            popExitTransition = { fadeOut(tween(fadeDuration)) }
         ) { backStackEntry ->
             val encodedPath = backStackEntry.arguments?.getString("path") ?: ""
             val path = URLDecoder.decode(encodedPath, "UTF-8")
@@ -527,6 +583,34 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() }
             )
         }
+
+        composable(
+            route = "music",
+            enterTransition = { fadeIn(tween(fadeDuration)) },
+            exitTransition = { fadeOut(tween(fadeDuration)) },
+            popEnterTransition = { with(AppMotion.Transitions) { enterFromFullScreen(motionScale) } },
+            popExitTransition = { fadeOut(tween(fadeDuration)) }
+        ) {
+            MusicScreen(
+                viewModel = audioViewModel,
+                onTrackClick = { navController.navigate("full_player") }
+            )
+        }
+
+        composable(
+            route = "full_player",
+            enterTransition = { with(AppMotion.Transitions) { slideInUpEnter(motionScale) } },
+            exitTransition = { fadeOut(tween(fadeDuration)) },
+            popEnterTransition = { fadeIn(tween(fadeDuration)) },
+            popExitTransition = { with(AppMotion.Transitions) { exitToLibrary(motionScale) } }
+        ) {
+            FullPlayerScreen(
+                viewModel = audioViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+
 
         composable("other_storage") {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -543,6 +627,7 @@ sealed class BottomNavItem(
     val title: String
 ) {
     object Home : BottomNavItem("home", Icons.Filled.Home, Icons.Outlined.Home, "Home")
+    object Music : BottomNavItem("music", Icons.Filled.MusicNote, Icons.Outlined.MusicNote, "Music")
     object Trash : BottomNavItem("trash", Icons.Filled.Delete, Icons.Outlined.Delete, "Bin")
     object Settings : BottomNavItem("settings", Icons.Filled.Settings, Icons.Outlined.Settings, "Settings")
 }

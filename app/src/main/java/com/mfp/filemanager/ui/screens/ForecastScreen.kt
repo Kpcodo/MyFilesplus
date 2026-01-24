@@ -56,6 +56,9 @@ import com.mfp.filemanager.data.FileUtils
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 
 import com.mfp.filemanager.data.StorageInfo
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.text.style.TextOverflow
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -266,11 +269,11 @@ fun FileTypeDistributionCard(info: StorageInfo) {
             // Colors matching StorageDashboard
             val appColor = Color(0xFF4CAF50) // Green
             val videoColor = Color(0xFF4285F4) // Blue
-            val imageColor = Color(0xFF6750a4) // Purple
-            val audioColor = Color(0xFF009688) // Teal
-            val docColor = Color(0xFFFFC107) // Amber
-            val otherColor = Color(0xFFe8b688) // Peach
-            val freeColor = Color(0xFFC8E6C9) // Light Green/Mint for Free space
+            val imageColor = Color(0xFF9C27B0) // Purple
+            val audioColor = Color(0xFF26A69A) // Teal
+            val docColor = Color(0xFFFFC107) // Yellow
+            val otherColor = Color(0xFFFFAB91) // Peach/Orange
+            val freeColor = Color(0xFFF5F5F5) // Light Grey
 
             val total = info.totalBytes.toFloat().coerceAtLeast(1f)
             
@@ -296,7 +299,7 @@ fun FileTypeDistributionCard(info: StorageInfo) {
             Spacer(modifier = Modifier.height(24.dp))
 
             // 3. Free Space Card (Moved to top)
-            FreeSpaceCard(freeBytes = info.freeBytes, totalBytes = info.totalBytes, color = Color(0xFF00C853))
+            FreeSpaceCard(freeBytes = info.freeBytes, totalBytes = info.totalBytes, color = Color(0xFF757575))
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -372,6 +375,7 @@ data class CategoryDetail(
     val icon: ImageVector
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CategoryDetailCard(
     item: CategoryDetail,
@@ -408,7 +412,9 @@ fun CategoryDetailCard(
                     text = item.name,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.basicMarquee()
                 )
             }
             

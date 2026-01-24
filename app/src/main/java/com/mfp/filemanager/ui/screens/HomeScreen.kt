@@ -40,12 +40,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.ExperimentalFoundationApi
 
 import com.mfp.filemanager.ui.components.FileThumbnail
 import com.mfp.filemanager.data.FileType
@@ -90,7 +94,11 @@ fun HomeScreen(
     ) {
         LazyColumn(
             modifier = Modifier
-                .fillMaxSize(),
+                .fillMaxSize()
+                .graphicsLayer {
+                    // Enable hardware acceleration for smooth scrolling
+                    clip = true
+                },
             contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
@@ -376,6 +384,7 @@ fun RecentFilesSection(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CompactFileItem(
     file: FileModel,
@@ -410,7 +419,9 @@ fun CompactFileItem(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                color = MaterialTheme.colorScheme.onSurface
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.basicMarquee()
             )
              Text(
                 text = FileUtils.formatSize(file.size),

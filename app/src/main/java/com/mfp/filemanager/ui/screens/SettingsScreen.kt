@@ -1,7 +1,9 @@
 package com.mfp.filemanager.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import kotlin.math.roundToInt
 import com.mfp.filemanager.ui.viewmodels.SettingsViewModel
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -29,8 +34,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material.icons.filled.ViewModule
+
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -55,6 +62,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Surface
@@ -82,6 +91,7 @@ fun SettingsScreen(
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         viewModel.checkAutoUpdate(versionName)
+        viewModel.calculateCacheSize(context)
     }
 
     // Handle Side Effects for Toast messages
@@ -163,25 +173,55 @@ fun SettingsScreen(
                         selected = state.themeMode == 0,
                         onClick = { viewModel.setThemeMode(0) },
                         label = { Text("System") },
-                        leadingIcon = if (state.themeMode == 0) { { Icon(Icons.Default.Check, null) } } else null
+                        leadingIcon = if (state.themeMode == 0) { { Icon(Icons.Filled.Check, null) } } else null
                     )
                     FilterChip(
                         selected = state.themeMode == 1,
                         onClick = { viewModel.setThemeMode(1) },
                         label = { Text("Light") },
-                        leadingIcon = if (state.themeMode == 1) { { Icon(Icons.Default.Check, null) } } else null
+                        leadingIcon = if (state.themeMode == 1) { { Icon(Icons.Filled.Check, null) } } else null
                     )
                     FilterChip(
                         selected = state.themeMode == 2,
                         onClick = { viewModel.setThemeMode(2) },
                         label = { Text("Dark") },
-                        leadingIcon = if (state.themeMode == 2) { { Icon(Icons.Default.Check, null) } } else null
+                        leadingIcon = if (state.themeMode == 2) { { Icon(Icons.Filled.Check, null) } } else null
                     )
                     FilterChip(
                         selected = state.themeMode == 3,
                         onClick = { viewModel.setThemeMode(3) },
                         label = { Text("AMOLED") },
-                        leadingIcon = if (state.themeMode == 3) { { Icon(Icons.Default.Check, null) } } else null
+                        leadingIcon = if (state.themeMode == 3) { { Icon(Icons.Filled.Check, null) } } else null
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Layout Mode", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = state.viewMode == 0,
+                        onClick = { viewModel.setViewMode(0) },
+                        label = { Text("List") },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, "List") },
+                        trailingIcon = if (state.viewMode == 0) { { Icon(Icons.Filled.Check, null) } } else null
+                    )
+                    FilterChip(
+                        selected = state.viewMode == 2,
+                        onClick = { viewModel.setViewMode(2) },
+                        label = { Text("Compact") },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.ViewList, "Compact") },
+                        trailingIcon = if (state.viewMode == 2) { { Icon(Icons.Filled.Check, null) } } else null
+                    )
+                    FilterChip(
+                        selected = state.viewMode == 1,
+                        onClick = { viewModel.setViewMode(1) },
+                        label = { Text("Grid") },
+                        leadingIcon = { Icon(Icons.Filled.GridView, "Grid") },
+                        trailingIcon = if (state.viewMode == 1) { { Icon(Icons.Filled.Check, null) } } else null
                     )
                 }
 
@@ -193,6 +233,194 @@ fun SettingsScreen(
                     onColorSelected = { viewModel.setAccentColor(it) }
                 )
 
+
+
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    var localAnimationSpeed by remember(state.animationSpeed) { mutableFloatStateOf(state.animationSpeed) }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Animation Speed", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                text = String.format("%.1fx", localAnimationSpeed),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (state.animationSpeed != 1.0f) {
+                            IconButton(
+                                onClick = { 
+                                    viewModel.setAnimationSpeed(1.0f) 
+                                    localAnimationSpeed = 1.0f
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Filled.Refresh, 
+                                    contentDescription = "Reset"
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Slider(
+                        value = localAnimationSpeed,
+                        onValueChange = { localAnimationSpeed = it },
+                        onValueChangeFinished = { viewModel.setAnimationSpeed(localAnimationSpeed) },
+                        valueRange = 0.1f..3.0f,
+                        steps = 28,
+                        thumb = {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .shadow(4.dp, CircleShape)
+                                    .background(Color.White, CircleShape)
+                                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                            )
+                        },
+                        track = {
+                            val fraction = (localAnimationSpeed - 0.1f) / (3.0f - 0.1f)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(12.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(fraction)
+                                        .fillMaxHeight()
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+                            }
+                        }
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("0.1x", style = MaterialTheme.typography.labelSmall)
+                        Text("3.0x", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                val isIconSizeEditable = state.viewMode == 0 || state.viewMode == 2 
+                var localIconSize by remember(state.iconSize) { mutableFloatStateOf(state.iconSize) }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Icon Size: ${(localIconSize * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (state.iconSize != 1.0f && isIconSizeEditable) {
+                        IconButton(onClick = { 
+                            viewModel.setIconSize(1.0f) 
+                            localIconSize = 1.0f
+                        }) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Reset Icon Size")
+                        }
+                    }
+                }
+                Slider(
+                    value = localIconSize,
+                    onValueChange = { localIconSize = it },
+                    onValueChangeFinished = { viewModel.setIconSize(localIconSize) },
+                    valueRange = 0.5f..1.5f,
+                    steps = 9,
+                    enabled = isIconSizeEditable,
+                    thumb = {
+                        if (isIconSizeEditable) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .shadow(6.dp, CircleShape)
+                                    .background(Color.White, CircleShape)
+                                    .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                                )
+                            }
+                        }
+                    },
+                    track = {
+                        val fraction = (localIconSize - 0.5f) / (1.5f - 0.5f)
+                        val primary = MaterialTheme.colorScheme.primary
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(24.dp)
+                        ) {
+                            val width = size.width
+                            val height = size.height
+                            val centerY = height / 2
+                            val startHeight = 4.dp.toPx()
+                            val endHeight = 16.dp.toPx()
+                            
+                            val path = androidx.compose.ui.graphics.Path().apply {
+                                moveTo(0f, centerY - startHeight / 2)
+                                lineTo(width, centerY - endHeight / 2)
+                                lineTo(width, centerY + endHeight / 2)
+                                lineTo(0f, centerY + startHeight / 2)
+                                close()
+                            }
+
+                            // Inactive Track
+                            drawPath(
+                                path = path,
+                                color = primary.copy(alpha = 0.2f)
+                            )
+
+                            // Active Track
+                            clipRect(
+                                left = 0f,
+                                top = 0f,
+                                right = width * fraction,
+                                bottom = height
+                            ) {
+                                drawPath(
+                                    path = path,
+                                    color = primary
+                                )
+                            }
+                        }
+                    }
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "SMALL", 
+                        style = MaterialTheme.typography.labelSmall, 
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "LARGE", 
+                        style = MaterialTheme.typography.labelSmall, 
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
@@ -208,93 +436,7 @@ fun SettingsScreen(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val speedLabel = when(state.animationSpeed) {
-                       0.5f -> "Slow (0.5x)"
-                       1.0f -> "Normal (1.0x)"
-                       1.5f -> "Fast (1.5x)"
-                       2.0f -> "Very Fast (2.0x)"
-                       else -> "${state.animationSpeed}x"
-                    }
-                    Text("Animation Speed: $speedLabel", style = MaterialTheme.typography.bodyMedium)
-                    if (state.animationSpeed != 1.0f) {
-                        IconButton(onClick = { viewModel.setAnimationSpeed(1.0f) }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Reset Speed")
-                        }
-                    }
-                }
-                Slider(
-                    value = state.animationSpeed,
-                    onValueChange = { viewModel.setAnimationSpeed(it) },
-                    valueRange = 0.1f..10.0f,
-                    steps = 98 
-                )
 
-                Spacer(modifier = Modifier.height(16.dp))
-                val isIconSizeEditable = state.viewMode == 0 || state.viewMode == 2 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Icon Size: ${(state.iconSize * 100).toInt()}%",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    if (state.iconSize != 1.0f && isIconSizeEditable) {
-                        IconButton(onClick = { viewModel.setIconSize(1.0f) }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Reset Icon Size")
-                        }
-                    }
-                }
-                Slider(
-                    value = state.iconSize,
-                    onValueChange = { viewModel.setIconSize(it) },
-                    valueRange = 0.5f..1.5f,
-                    steps = 9,
-                    enabled = isIconSizeEditable
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Layout Mode", style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = state.viewMode == 0,
-                        onClick = { viewModel.setViewMode(0) },
-                        label = { Text("List") },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, "List") },
-                        trailingIcon = if (state.viewMode == 0) { { Icon(Icons.Default.Check, null) } } else null
-                    )
-                    FilterChip(
-                        selected = state.viewMode == 2,
-                        onClick = { viewModel.setViewMode(2) },
-                        label = { Text("Compact") },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.ViewList, "Compact") },
-                        trailingIcon = if (state.viewMode == 2) { { Icon(Icons.Default.Check, null) } } else null
-                    )
-                    FilterChip(
-                        selected = state.viewMode == 1,
-                        onClick = { viewModel.setViewMode(1) },
-                        label = { Text("Grid") },
-                        leadingIcon = { Icon(Icons.Default.GridView, "Grid") },
-                        trailingIcon = if (state.viewMode == 1) { { Icon(Icons.Default.Check, null) } } else null
-                    )
-                    FilterChip(
-                        selected = state.viewMode == 3,
-                        onClick = { viewModel.setViewMode(3) },
-                        label = { Text("Large Grid") },
-                        leadingIcon = { Icon(Icons.Default.ViewModule, "Large Grid") },
-                        trailingIcon = if (state.viewMode == 3) { { Icon(Icons.Default.Check, null) } } else null
-                    )
-                }
             }
 
             HorizontalDivider()
@@ -336,48 +478,73 @@ fun SettingsScreen(
                         onCheckedChange = { viewModel.toggleSwipeNavigation(it) }
                     )
                 }
+            }
+            
+            HorizontalDivider()
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-                // Swipe to Delete Config
-                val isSwipeDeleteBlocked = state.isSwipeNavigationEnabled
+            // Cache & Management Section
+            SettingsSection(title = "Cache & Management") {
+                Text(
+                    "Thumbnail Cache Limit", 
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    "Set the maximum storage space for file thumbnails",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val usedMb = state.currentCacheSize.toDouble() / (1024.0 * 1024.0)
+                Text(
+                    text = String.format("Used: %.2fMB / Limit: %dMB", usedMb, state.cacheSizeLimit),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                
                 Row(
-                    modifier = Modifier.fillMaxWidth().alpha(if (isSwipeDeleteBlocked) 0.5f else 1f),
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val limits = listOf(100, 200, 300)
+                    limits.forEach { limit ->
+                        FilterChip(
+                            selected = state.cacheSizeLimit == limit,
+                            onClick = { viewModel.setCacheSizeLimit(limit) },
+                            label = { Text("${limit}MB") },
+                            leadingIcon = if (state.cacheSizeLimit == limit) { { Icon(Icons.Filled.Check, null) } } else null
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Swipe to Delete", style = MaterialTheme.typography.bodyLarge)
+                        Text("Clear Thumbnails Cache", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            if (isSwipeDeleteBlocked) "Disabled by Swipe Navigation" else "Swipe items to move them to Bin",
+                            "Wipe all stored thumbnails to free up space",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
-                        checked = state.swipeDeleteEnabled,
-                        onCheckedChange = { viewModel.toggleSwipeDelete(it) },
-                        enabled = !isSwipeDeleteBlocked
-                    )
-                }
-
-                if (state.swipeDeleteEnabled) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Swipe Direction", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        FilterChip(
-                            selected = state.swipeDeleteDirection == 0, // Left
-                            onClick = { viewModel.setSwipeDeleteDirection(0) },
-                            label = { Text("Swipe Left") },
-                            leadingIcon = if (state.swipeDeleteDirection == 0) { { Icon(Icons.Default.Check, null) } } else null
+                    Button(
+                        onClick = { 
+                            viewModel.clearThumbnailsCache(context)
+                            Toast.makeText(context, "Cache cleared successfully", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
                         )
-                        FilterChip(
-                            selected = state.swipeDeleteDirection == 1, // Right
-                            onClick = { viewModel.setSwipeDeleteDirection(1) },
-                            label = { Text("Swipe Right") },
-                            leadingIcon = if (state.swipeDeleteDirection == 1) { { Icon(Icons.Default.Check, null) } } else null
-                        )
+                    ) {
+                        Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Clear")
                     }
                 }
             }
@@ -404,25 +571,25 @@ fun SettingsScreen(
                         selected = days == -1,
                         onClick = { viewModel.setTrashRetentionDays(-1) },
                         label = { Text("Off") },
-                        leadingIcon = if (days == -1) { { Icon(Icons.Default.Check, null) } } else null
+                        leadingIcon = if (days == -1) { { Icon(Icons.Filled.Check, null) } } else null
                     )
                     FilterChip(
                         selected = days == 7,
                         onClick = { viewModel.setTrashRetentionDays(7) },
                         label = { Text("1 Week") },
-                        leadingIcon = if (days == 7) { { Icon(Icons.Default.Check, null) } } else null
+                        leadingIcon = if (days == 7) { { Icon(Icons.Filled.Check, null) } } else null
                     )
                     FilterChip(
                         selected = days == 30,
                         onClick = { viewModel.setTrashRetentionDays(30) },
                         label = { Text("1 Month") },
-                        leadingIcon = if (days == 30) { { Icon(Icons.Default.Check, null) } } else null
+                        leadingIcon = if (days == 30) { { Icon(Icons.Filled.Check, null) } } else null
                     )
                     FilterChip(
                         selected = isCustom,
                         onClick = { if (!isCustom) viewModel.setTrashRetentionDays(90) },
                         label = { Text("Custom") },
-                        leadingIcon = if (isCustom) { { Icon(Icons.Default.Check, null) } } else null
+                        leadingIcon = if (isCustom) { { Icon(Icons.Filled.Check, null) } } else null
                     )
                 }
                 
@@ -540,7 +707,7 @@ fun UpdateAvailableDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                        Icon(Icons.Filled.Close, contentDescription = "Close")
                     }
                     Text(
                         "Update Available", 
@@ -558,7 +725,7 @@ fun UpdateAvailableDialog(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SystemUpdate,
+                        imageVector = Icons.Filled.SystemUpdate,
                         contentDescription = "Update Icon",
                         modifier = Modifier
                             .size(100.dp)
@@ -612,7 +779,7 @@ fun UpdateAvailableDialog(
                         .height(56.dp),
                     shape = MaterialTheme.shapes.large
                 ) {
-                    Icon(Icons.Default.Download, contentDescription = null)
+                    Icon(Icons.Filled.Download, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Download & Install", style = MaterialTheme.typography.titleMedium)
                 }
@@ -656,7 +823,7 @@ fun ColorPicker(selectedColor: Int, onColorSelected: (Int) -> Unit) {
             ) {
                 if (selectedColor == colorInt) {
                     Icon(
-                        imageVector = Icons.Default.Check,
+                        imageVector = Icons.Filled.Check,
                         contentDescription = "Selected",
                         tint = Color.White,
                         modifier = Modifier.align(Alignment.Center)

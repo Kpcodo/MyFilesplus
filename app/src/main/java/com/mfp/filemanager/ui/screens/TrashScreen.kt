@@ -3,55 +3,45 @@ package com.mfp.filemanager.ui.screens
 import android.annotation.SuppressLint
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.scale
 import com.mfp.filemanager.R
-import com.mfp.filemanager.ui.viewmodels.HomeViewModel
+import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.data.FileType
 import com.mfp.filemanager.data.FileUtils
 import com.mfp.filemanager.data.trash.TrashedFile
+import com.mfp.filemanager.ui.components.*
+import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 
 private enum class DialogType {
     NONE,
     DELETE_SINGLE,
     RESTORE_SINGLE,
     RESTORE_ALL,
-    EMPTY_TRASH
+    EMPTY_TRASH,
+    DELETE_SELECTED
 }
 
-@SuppressLint("UnusedContent")
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrashScreen(
@@ -61,7 +51,9 @@ fun TrashScreen(
 ) {
     val trashedFilesState by viewModel.trashedFiles.collectAsState()
     val loadingState by viewModel.isLoading.collectAsState()
-    val swipeDeleteEnabled by viewModel.swipeDeleteEnabled.collectAsState()
+    val operationStatus by viewModel.operationStatus.collectAsState()
+    val selectionMode by viewModel.isTrashSelectionMode.collectAsState()
+    val selectedFiles by viewModel.selectedTrashFiles.collectAsState()
 
     var shownDialog by remember { mutableStateOf(DialogType.NONE) }
     var fileToDelete by remember { mutableStateOf<TrashedFile?>(null) }
@@ -129,15 +121,43 @@ fun TrashScreen(
                 onDismiss = { shownDialog = DialogType.NONE }
             )
         }
+        DialogType.DELETE_SELECTED -> {
+            ConfirmationDialog(
+                title = stringResource(R.string.delete_permanently_title),
+                message = "Are you sure you want to permanently delete the ${selectedFiles.size} selected items?",
+                onConfirm = {
+                    viewModel.deleteSelectedTrashFilesPermanently()
+                    shownDialog = DialogType.NONE
+                },
+                onDismiss = { shownDialog = DialogType.NONE }
+            )
+        }
         DialogType.NONE -> { /* Do nothing */ }
     }
 
     Scaffold(
         topBar = {
             if (showTopBar) {
-                TrashTopAppBar(
-                    onBack = onBack
-                )
+                if (selectionMode) {
+                    TrashSelectionTopAppBar(
+                        selectedCount = selectedFiles.size,
+                        isAllSelected = selectedFiles.size == trashedFilesState.size,
+                        onClearSelection = { viewModel.exitTrashSelectionMode() },
+                        onSelectAll = {
+                            if (selectedFiles.size == trashedFilesState.size) {
+                                viewModel.clearTrashSelection()
+                            } else {
+                                viewModel.selectAllTrashFiles()
+                            }
+                        },
+                        onDeletePermanently = { shownDialog = DialogType.DELETE_SELECTED },
+                        onRestore = { viewModel.restoreSelectedTrashFiles() }
+                    )
+                } else {
+                    TrashTopAppBar(
+                        onBack = onBack
+                    )
+                }
             }
         }
 
@@ -178,62 +198,43 @@ fun TrashScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                if (loadingState) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                } else if (trashedFilesState.isEmpty()) {
-                    Text(
-                        stringResource(R.string.trash_empty_message),
+                if (loadingState && !operationStatus.isRunning) {
+                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                } else if (trashedFilesState.isEmpty() && !loadingState && !operationStatus.isRunning) {
+                    Column(
                         modifier = Modifier.align(Alignment.Center),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteForever,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            stringResource(R.string.trash_empty_message),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 } else {
                     LazyColumn {
                         items(trashedFilesState, key = { it.id }) { file ->
-                             // Swipe to Delete (Permanently) - EndToStart
-                             val dismissState = rememberSwipeToDismissBoxState(
-                                confirmValueChange = { value ->
-                                    if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        fileToDelete = file
-                                        shownDialog = DialogType.DELETE_SINGLE
-                                        false 
+                            TrashedItem(
+                                file = file,
+                                isSelected = selectedFiles.contains(file.id),
+                                selectionMode = selectionMode,
+                                onClick = {
+                                    if (selectionMode) {
+                                        viewModel.toggleTrashSelection(file.id)
                                     } else {
-                                        false
-                                    }
-                                }
-                            )
-
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                backgroundContent = {
-                                    val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
-                                        MaterialTheme.colorScheme.errorContainer
-                                    } else {
-                                        Color.Transparent
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(color)
-                                            .padding(horizontal = 20.dp),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
-                                        Icon(
-                                            Icons.Default.DeleteForever,
-                                            contentDescription = "Delete Forever",
-                                            tint = MaterialTheme.colorScheme.onErrorContainer
-                                        )
+                                        fileToRestore = file
+                                        shownDialog = DialogType.RESTORE_SINGLE
                                     }
                                 },
-                                enableDismissFromStartToEnd = false,
-                                enableDismissFromEndToStart = swipeDeleteEnabled, // Only delete forever
-                                content = {
-                                    TrashedItem(
-                                        file = file,
-                                        onClick = {
-                                             fileToRestore = file
-                                             shownDialog = DialogType.RESTORE_SINGLE
-                                        }
-                                    )
+                                onLongClick = {
+                                    viewModel.toggleTrashSelection(file.id)
                                 }
                             )
                         }
@@ -243,7 +244,6 @@ fun TrashScreen(
         }
     }
 }
-
 @Composable
 fun ConfirmationDialog(
     title: String,
@@ -270,6 +270,47 @@ fun ConfirmationDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun TrashSelectionTopAppBar(
+    selectedCount: Int,
+    isAllSelected: Boolean,
+    onClearSelection: () -> Unit,
+    onSelectAll: () -> Unit,
+    onDeletePermanently: () -> Unit,
+    onRestore: () -> Unit
+) {
+    TopAppBar(
+        title = { Text("$selectedCount Selected") },
+        navigationIcon = {
+            IconButton(onClick = onClearSelection) {
+                Icon(Icons.Default.Close, contentDescription = "Clear Selection")
+            }
+        },
+        actions = {
+            IconButton(onClick = onSelectAll) {
+                Icon(
+                    imageVector = Icons.Outlined.SelectAll,
+                    contentDescription = "Select All",
+                    tint = if (isAllSelected) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                )
+            }
+            IconButton(onClick = onRestore) {
+                Icon(Icons.Default.Restore, contentDescription = "Restore Selected")
+            }
+            IconButton(onClick = onDeletePermanently) {
+                Icon(Icons.Default.DeleteForever, contentDescription = "Delete Selected Permanently")
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            actionIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun TrashTopAppBar(
     onBack: () -> Unit
 ) {
@@ -287,13 +328,40 @@ fun TrashTopAppBar(
 @Composable
 fun TrashedItem(
     file: TrashedFile,
-    onClick: () -> Unit
+    isSelected: Boolean,
+    selectionMode: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
+    // Convert TrashedFile to FileModel for the shared component
+    val fileModel = remember(file) {
+        FileModel(
+            id = file.id,
+            name = file.name,
+            path = file.trashPath, // Use the physical path in trash
+            size = file.size,
+            dateModified = file.dateDeleted,
+            mimeType = null,
+            type = file.type,
+            isDirectory = false
+        )
+    }
+
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 0.98f else 1f,
+        label = "ItemScale"
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onClick)
+            .scale(scale)
+            .background(backgroundColor)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -301,45 +369,45 @@ fun TrashedItem(
             modifier = Modifier
                 .size(56.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.surfaceVariant), // Use variant for better contrast
             contentAlignment = Alignment.Center
         ) {
-            if (file.type == FileType.IMAGE || file.type == FileType.VIDEO) {
-                SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(java.io.File(file.trashPath))
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = file.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    loading = { CircularProgressIndicator(modifier = Modifier.size(24.dp)) },
-                    error = { Icon(Icons.Default.BrokenImage, contentDescription = null) }
-                )
-            } else {
-                val icon = when (file.type) {
-                    FileType.AUDIO -> Icons.Default.MusicNote
-                    FileType.ARCHIVE -> Icons.Default.Folder
-                    FileType.DOCUMENT -> Icons.Default.Description
-                    else -> Icons.AutoMirrored.Filled.InsertDriveFile
-                }
-                Icon(icon, contentDescription = file.name, tint = MaterialTheme.colorScheme.primary)
-            }
+            FileThumbnail(
+                file = fileModel,
+                modifier = Modifier.fillMaxSize(),
+                iconSize = 0.8f // Slightly smaller icons inside the box
+            )
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+            Text(
+                text = file.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.basicMarquee()
+            )
             Text(
                 stringResource(R.string.original_path_label, file.originalPath.substringBeforeLast("/")),
                 style = MaterialTheme.typography.bodySmall,
-                maxLines = 1
+                maxLines = 1,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 stringResource(R.string.deleted_date_label, FileUtils.formatDate(file.dateDeleted)),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+
+        if (selectionMode) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onClick() },
+                modifier = Modifier.padding(start = 8.dp)
             )
         }
     }

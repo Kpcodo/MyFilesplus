@@ -15,6 +15,8 @@ import com.mfp.filemanager.data.trash.TrashedFile
 import com.mfp.filemanager.ui.SortType
 import com.mfp.filemanager.ui.SortOrder
 import com.mfp.filemanager.ui.ViewType
+import com.mfp.filemanager.ui.components.OperationStatus
+import com.mfp.filemanager.ui.components.OperationType
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +60,12 @@ class HomeViewModel(
     private val _forecastText = MutableStateFlow("...")
     val forecastText: StateFlow<String> = _forecastText.asStateFlow()
 
+    private val _operationStatus = MutableStateFlow(OperationStatus())
+    val operationStatus: StateFlow<OperationStatus> = _operationStatus.asStateFlow()
+
+    private val _currentPath = MutableStateFlow("")
+    val currentPath: StateFlow<String> = _currentPath.asStateFlow()
+
     private val _dailyUsageRate = MutableStateFlow<Long>(0)
     val dailyUsageRate: StateFlow<Long> = _dailyUsageRate.asStateFlow()
 
@@ -72,18 +80,6 @@ class HomeViewModel(
         val dateFormat = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
         dateFormat.format(calendar.time)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Calculating...")
-
-    val swipeDeleteEnabled: StateFlow<Boolean> = settingsRepository.swipeDeleteEnabled.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
-    )
-
-    val swipeDeleteDirection: StateFlow<Int> = settingsRepository.swipeDeleteDirection.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0 // 0 = Left
-    )
 
     val isSwipeNavigationEnabled: StateFlow<Boolean> = settingsRepository.swipeNavigationEnabled.stateIn(
         scope = viewModelScope,
@@ -243,9 +239,10 @@ class HomeViewModel(
         _files.value = orderedList.sortedBy { file -> !file.isDirectory } // Keep folders on top
     }
 
-    fun loadFiles(path: String) {
+    fun loadFiles(path: String, isRefresh: Boolean = false) {
+        _currentPath.value = path
         viewModelScope.launch {
-            _isLoading.value = true
+            if (isRefresh) _isRefreshing.value = true else _isLoading.value = true
             try {
                 // Artificial delay removed for speed
                 // delay(300)
@@ -254,27 +251,68 @@ class HomeViewModel(
             } catch (e: Exception) {
                 showMessage("Error loading files: ${e.message}")
             } finally {
-                _isLoading.value = false
+                if (isRefresh) _isRefreshing.value = false else _isLoading.value = false
             }
         }
     }
 
 
-    fun deleteFile(path: String, onFinished: () -> Unit) {
+    fun deleteFile(path: String, currentPath: String = "") {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
         viewModelScope.launch {
-            // Optimistic Update: Immediately remove from list if present
+            val fileToDelete = _rawFiles.value.find { it.path == path }
+            
+            _operationStatus.value = OperationStatus(
+                isRunning = true,
+                type = OperationType.TRASH,
+                progress = 0f,
+                processedCount = 0,
+                totalCount = 1
+            )
+            
+            // Optimistic Update Browser: Immediately remove from list
             val currentFiles = _rawFiles.value
             _rawFiles.value = currentFiles.filter { it.path != path }
             sortFiles()
+
+            // Optimistic Update Trash
+            fileToDelete?.let { addOptimisticTrashItems(listOf(it)) }
             
-            if (repository.deleteFile(path)) {
-                onFinished()
-                showMessage("Moved to Bin")
-            } else {
-                // Revert if failed
+            if (_selectedBrowserFiles.value.contains(path)) {
+                val currentSelected = _selectedBrowserFiles.value.toMutableSet()
+                currentSelected.remove(path)
+                _selectedBrowserFiles.value = currentSelected.toSet() 
+                if (currentSelected.isEmpty()) {
+                    exitBrowserSelectionMode()
+                }
+            }
+
+            try {
+                if (repository.deleteFile(path)) {
+                    _operationStatus.value = _operationStatus.value.copy(progress = 1f, processedCount = 1)
+                    showMessage("Moved to Bin")
+                    if (currentPath.isNotEmpty()) {
+                        loadFiles(currentPath)
+                    }
+                    loadTrashedFiles() // Sync for real data
+                    loadForecastDetails()
+                } else {
+                    // Revert
+                    _rawFiles.value = currentFiles
+                    sortFiles()
+                    loadTrashedFiles() // Cleanup optimistic trash
+                    showMessage("Error: Could not delete item")
+                }
+            } catch (e: Exception) {
                 _rawFiles.value = currentFiles
                 sortFiles()
-                showMessage("Error: Could not delete item")
+                loadTrashedFiles()
+                showMessage("Error: ${e.message}")
+            } finally {
+                _operationStatus.value = OperationStatus()
             }
         }
     }
@@ -285,48 +323,113 @@ class HomeViewModel(
         deleteMultipleFiles(selected, currentPath)
     }
 
-    fun deleteMultipleFiles(paths: List<String>, currentPath: String) {
+    fun deleteMultipleFiles(paths: List<String>, currentPath: String = "") {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
+            
+            val filesToDelete = _rawFiles.value.filter { it.path in paths }
+
+            _operationStatus.value = OperationStatus(
+                isRunning = true,
+                type = OperationType.TRASH,
+                progress = 0f,
+                processedCount = 0,
+                totalCount = paths.size
+            )
+
             val currentFiles = _rawFiles.value
             try {
-                // Optimistic update
-                _rawFiles.value = currentFiles.filter { it.path !in paths }
-                sortFiles()
-                exitBrowserSelectionMode() // Exit mode immediately or after? Usually immediate for optimistic.
-
-                val allSuccess = repository.deleteFilesBatch(paths)
+                // Optimistic Update Trash is still okay visually as it adds to another screen
+                addOptimisticTrashItems(filesToDelete)
                 
-                // Refresh list eventually to be sure, but without loading spinner
-                _rawFiles.value = repository.getFilesFromPath(currentPath)
-                sortFiles()
+                val remainingSelected = _selectedBrowserFiles.value.filter { it !in paths }.toSet()
+                _selectedBrowserFiles.value = remainingSelected
+                if (remainingSelected.isEmpty()) {
+                    exitBrowserSelectionMode()
+                }
 
+                val fileSizes = filesToDelete.map { it.size }
+                var lastProcessedCount = 0
+                val allSuccess = repository.deleteFilesBatch(paths) { progress ->
+                    val currentCount = (progress * paths.size).toInt()
+                    
+                    // Skip update logic to create jumps (randomly skip until 40% chance or end reached)
+                    if (currentCount > lastProcessedCount) {
+                        if (currentCount < paths.size && Math.random() < 0.4) {
+                            return@deleteFilesBatch
+                        }
+
+                        // Batch removal for the jump
+                        val pathsToRemove = paths.slice(lastProcessedCount until currentCount)
+                        _rawFiles.value = _rawFiles.value.filter { it.path !in pathsToRemove }
+                        
+                        val unevenProgress = getUnevenProgress(currentCount - 1, paths.size, fileSizes)
+                        _operationStatus.value = _operationStatus.value.copy(
+                            progress = if (progress >= 1f) 1f else unevenProgress,
+                            processedCount = currentCount
+                        )
+                        lastProcessedCount = currentCount
+                    }
+                }
+                
                 if (allSuccess) {
+                    _operationStatus.value = _operationStatus.value.copy(progress = 1f, processedCount = paths.size)
+                    // Wait for animation
+                    kotlinx.coroutines.delay(200)
                     showMessage("Moved ${paths.size} items to Bin")
                 } else {
                     showMessage("Some items could not be moved to Bin")
                 }
-            } catch (e: Exception) {
-                // Revert
-                _rawFiles.value = currentFiles
+
+                // Final sync and sort
                 sortFiles()
+                loadTrashedFiles() // Sync Trash
+                loadForecastDetails()
+
+            } catch (e: Exception) {
+                loadTrashedFiles()
                 showMessage("Error deleting files: ${e.message}")
             } finally {
                 _isLoading.value = false
+                _operationStatus.value = OperationStatus() // Reset
             }
         }
     }
 
 
     fun extractFile(file: FileModel, onSuccess: () -> Unit) {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
+            _operationStatus.value = OperationStatus(
+                isRunning = true,
+                type = OperationType.EXTRACT,
+                progress = 0f,
+                processedCount = 0,
+                totalCount = 1
+            )
+            
             try {
                 val destinationPath = file.path.substringBeforeLast(".")
-                val success = repository.extractArchive(file.path, destinationPath)
+                val success = repository.extractArchive(file.path, destinationPath) { progress ->
+                    _operationStatus.value = _operationStatus.value.copy(
+                        progress = progress,
+                        processedCount = if (progress >= 1f) 1 else 0
+                    )
+                }
+                
                 if (success) {
+                    _operationStatus.value = _operationStatus.value.copy(progress = 1f, processedCount = 1)
                     onSuccess()
                     showMessage("Extraction successful to $destinationPath")
+                    loadFiles(File(file.path).parent ?: "")
                 } else {
                     showMessage("Extraction failed")
                 }
@@ -334,6 +437,7 @@ class HomeViewModel(
                 showMessage("Extraction failed: ${e.message}")
             } finally {
                 _isLoading.value = false
+                _operationStatus.value = OperationStatus()
             }
         }
     }
@@ -431,25 +535,63 @@ class HomeViewModel(
     }
 
     fun deleteSelectedRecentFiles() {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
         val selectedPaths = _selectedRecentFiles.value.toList()
         if (selectedPaths.isEmpty()) return
         
         viewModelScope.launch {
-            // Optimistic update
-            val currentRecents = _recentFiles.value
-            _recentFiles.value = currentRecents.filter { it.path !in selectedPaths }
-            // Do NOT call clearRecentSelection here, explicitly exit mode or not? 
-            // Usually after delete, we exit selection mode.
-            exitRecentSelectionMode() 
-
-            val allSuccess = repository.deleteFilesBatch(selectedPaths)
+            _operationStatus.value = OperationStatus(isRunning = true, type = OperationType.TRASH, totalCount = selectedPaths.size)
             
-            if (!allSuccess) {
-                // Determine which failed? Reloading is safer
+            // Optimistic update Recents
+            val currentRecents = _recentFiles.value
+            val filesToDelete = currentRecents.filter { it.path in selectedPaths }
+            try {
+                // Optimistic update Trash is okay
+                addOptimisticTrashItems(filesToDelete)
+
+                val fileSizes = filesToDelete.map { it.size }
+                var lastProcessedCount = 0
+                val allSuccess = repository.deleteFilesBatch(selectedPaths) { progress ->
+                    val currentCount = (progress * selectedPaths.size).toInt()
+                    
+                    if (currentCount > lastProcessedCount) {
+                        // Skip update logic to create jumps
+                        if (currentCount < selectedPaths.size && Math.random() < 0.4) {
+                            return@deleteFilesBatch
+                        }
+
+                        val pathsToRemove = selectedPaths.slice(lastProcessedCount until currentCount)
+                        _recentFiles.value = _recentFiles.value.filter { it.path !in pathsToRemove }
+
+                        val unevenProgress = getUnevenProgress(currentCount - 1, selectedPaths.size, fileSizes)
+                        _operationStatus.value = _operationStatus.value.copy(
+                            progress = if (progress >= 1f) 1f else unevenProgress,
+                            processedCount = currentCount
+                        )
+                        lastProcessedCount = currentCount
+                    }
+                }
+                if (allSuccess) {
+                    _operationStatus.value = _operationStatus.value.copy(progress = 1f, processedCount = selectedPaths.size)
+                    // Wait for animation
+                    kotlinx.coroutines.delay(200)
+                    exitRecentSelectionMode()
+                    showMessage("Deleted ${selectedPaths.size} items")
+                } else {
+                    showMessage("Some items could not be deleted")
+                }
                 loadRecentFiles()
-                showMessage("Some items could not be deleted")
-            } else {
-                showMessage("Deleted ${selectedPaths.size} items")
+                loadDashboardData()
+                loadTrashedFiles()
+            } catch (e: Exception) {
+                loadRecentFiles()
+                loadTrashedFiles()
+                showMessage("Error: ${e.message}")
+            } finally {
+                _operationStatus.value = OperationStatus()
             }
         }
     }
@@ -458,6 +600,69 @@ class HomeViewModel(
     private val _trashedFiles = MutableStateFlow<List<com.mfp.filemanager.data.trash.TrashedFile>>(emptyList())
     val trashedFiles: StateFlow<List<com.mfp.filemanager.data.trash.TrashedFile>> = _trashedFiles.asStateFlow()
 
+    private val _selectedTrashFiles = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedTrashFiles: StateFlow<Set<Long>> = _selectedTrashFiles.asStateFlow()
+
+    private val _isTrashSelectionMode = MutableStateFlow(false)
+    val isTrashSelectionMode: StateFlow<Boolean> = _isTrashSelectionMode.asStateFlow()
+
+    fun toggleTrashSelection(id: Long) {
+        if (!_isTrashSelectionMode.value) {
+            _isTrashSelectionMode.value = true
+        }
+        val current = _selectedTrashFiles.value.toMutableSet()
+        if (current.contains(id)) {
+            current.remove(id)
+        } else {
+            current.add(id)
+        }
+        _selectedTrashFiles.value = current
+        if (current.isEmpty()) {
+            _isTrashSelectionMode.value = false
+        }
+    }
+
+    fun selectAllTrashFiles() {
+        _isTrashSelectionMode.value = true
+        _selectedTrashFiles.value = _trashedFiles.value.map { it.id }.toSet()
+    }
+
+    fun exitTrashSelectionMode() {
+        _isTrashSelectionMode.value = false
+        _selectedTrashFiles.value = emptySet()
+    }
+
+    fun clearTrashSelection() {
+        _selectedTrashFiles.value = emptySet()
+        _isTrashSelectionMode.value = false
+    }
+
+    fun deleteSelectedTrashFilesPermanently() {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
+        val selectedIds = _selectedTrashFiles.value
+        val filesToDelete = _trashedFiles.value.filter { it.id in selectedIds }
+        if (filesToDelete.isNotEmpty()) {
+            deleteFilesPermanently(filesToDelete)
+            exitTrashSelectionMode()
+        }
+    }
+
+    fun restoreSelectedTrashFiles() {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
+        val selectedIds = _selectedTrashFiles.value
+        val filesToRestore = _trashedFiles.value.filter { it.id in selectedIds }
+        if (filesToRestore.isNotEmpty()) {
+            restoreFiles(filesToRestore)
+            exitTrashSelectionMode()
+        }
+    }
+
     fun loadTrashedFiles() {
         viewModelScope.launch {
             _trashedFiles.value = repository.getTrashedFiles().sortedByDescending { it.dateDeleted }
@@ -465,38 +670,122 @@ class HomeViewModel(
     }
 
     fun deleteRecentFile(file: FileModel) {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
         viewModelScope.launch {
-            // Optimistic update
+            _operationStatus.value = OperationStatus(isRunning = true, type = OperationType.TRASH, totalCount = 1)
+            
+            // Optimistic update Recents
             val currentRecents = _recentFiles.value
             _recentFiles.value = currentRecents.filter { it.path != file.path }
             
-            if (repository.deleteFile(file.path)) {
-                showMessage("Deleted ${file.name}")
-            } else {
-                 // Revert
+            // Optimistic update Trash
+            addOptimisticTrashItems(listOf(file))
+
+            try {
+                if (repository.deleteFile(file.path)) {
+                    showMessage("Deleted ${file.name}")
+                    loadDashboardData() // Sync size
+                    loadTrashedFiles() // Sync actual items
+                } else {
+                    // Revert
+                    _recentFiles.value = currentRecents
+                    loadTrashedFiles()
+                    showMessage("Error deleting file")
+                }
+            } catch (e: Exception) {
                 _recentFiles.value = currentRecents
-                showMessage("Error deleting file")
+                loadTrashedFiles()
+                showMessage("Error: ${e.message}")
+            } finally {
+                _operationStatus.value = OperationStatus()
             }
         }
     }
 
+    private fun addOptimisticTrashItems(files: List<FileModel>) {
+        val tempTrashedItems = files.map { model ->
+            TrashedFile(
+                id = System.nanoTime(),
+                name = model.name,
+                originalPath = model.path,
+                trashPath = model.path,
+                size = model.size,
+                dateDeleted = System.currentTimeMillis(),
+                type = model.type
+            )
+        }
+        _trashedFiles.value = tempTrashedItems + _trashedFiles.value
+        // Update trash size flow if it exists
+        _trashSize.value += files.sumOf { it.size }
+    }
+
     fun restoreFiles(trashedFiles: List<com.mfp.filemanager.data.trash.TrashedFile>) {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
+            _operationStatus.value = OperationStatus(
+                isRunning = true,
+                type = OperationType.RESTORE,
+                progress = 0f,
+                processedCount = 0,
+                totalCount = trashedFiles.size
+            )
+
+            val currentList = _trashedFiles.value
+            
             try {
-                val allSuccess = repository.restoreFilesBatch(trashedFiles)
-                loadTrashedFiles()
-                _trashSize.value = repository.getTrashSize()
+                // No optimistic removal from list
+                val fileSizes = trashedFiles.map { it.size }
+                var lastProcessedCount = 0
+                val allSuccess = repository.restoreFilesBatch(trashedFiles) { progress ->
+                    val currentCount = (progress * trashedFiles.size).toInt()
+                    
+                    if (currentCount > lastProcessedCount) {
+                        // Skip update logic to create jumps
+                        if (currentCount < trashedFiles.size && Math.random() < 0.4) {
+                            return@restoreFilesBatch
+                        }
+
+                        val itemsToRemove = trashedFiles.slice(lastProcessedCount until currentCount)
+                        val idsToRemove = itemsToRemove.map { it.id }.toSet()
+                        
+                        _trashedFiles.value = _trashedFiles.value.filter { it.id !in idsToRemove }
+                        _trashSize.value = (_trashSize.value - itemsToRemove.sumOf { it.size }).coerceAtLeast(0L)
+
+                        val unevenProgress = getUnevenProgress(currentCount - 1, trashedFiles.size, fileSizes)
+                        _operationStatus.value = _operationStatus.value.copy(
+                            progress = if (progress >= 1f) 1f else unevenProgress,
+                            processedCount = currentCount
+                        )
+                        lastProcessedCount = currentCount
+                    }
+                }
                 
                 if (allSuccess) {
+                    _operationStatus.value = _operationStatus.value.copy(progress = 1f, processedCount = trashedFiles.size)
+                    // Wait for animation
+                    kotlinx.coroutines.delay(200)
                     showMessage("Restored ${trashedFiles.size} items")
                 } else {
                     showMessage("Some items could not be restored")
                 }
+
+                // Background sync/refresh
+                loadTrashedFiles()
+                _trashSize.value = repository.getTrashSize()
+                loadForecastDetails()
+
             } catch (e: Exception) {
                 showMessage("Restore failed: ${e.message}")
             } finally {
                 _isLoading.value = false
+                _operationStatus.value = OperationStatus() // Reset status
             }
         }
     }
@@ -504,11 +793,42 @@ class HomeViewModel(
     fun deleteFilesPermanently(trashedFiles: List<com.mfp.filemanager.data.trash.TrashedFile>) {
         viewModelScope.launch {
             _isLoading.value = true
+            _operationStatus.value = OperationStatus(
+                isRunning = true,
+                type = OperationType.DELETE,
+                progress = 0f,
+                processedCount = 0,
+                totalCount = trashedFiles.size
+            )
+
+            val currentList = _trashedFiles.value
+            
             try {
+                val fileSizes = trashedFiles.map { it.size }
                 var successCount = 0
-                trashedFiles.forEach { 
-                    if (repository.deleteFilePermanently(it)) successCount++
+                var lastShownCount = 0
+                trashedFiles.forEachIndexed { index, file ->
+                    if (repository.deleteFilePermanently(file)) successCount++
+                    
+                    val currentCount = index + 1
+                    // Jump logic: show only if random threshold met or it's the last item
+                    if (currentCount == trashedFiles.size || Math.random() > 0.4) {
+                        val unevenProgress = getUnevenProgress(currentCount - 1, trashedFiles.size, fileSizes)
+                        _operationStatus.value = _operationStatus.value.copy(
+                            progress = if (currentCount >= trashedFiles.size) 1f else unevenProgress,
+                            processedCount = currentCount
+                        )
+                        lastShownCount = currentCount
+                    }
                 }
+                
+                if (successCount > 0) {
+                    _operationStatus.value = _operationStatus.value.copy(progress = 1f, processedCount = trashedFiles.size)
+                    // Wait for animation
+                    kotlinx.coroutines.delay(200)
+                }
+
+                // Sync UI
                 loadTrashedFiles()
                 _trashSize.value = repository.getTrashSize()
 
@@ -518,27 +838,50 @@ class HomeViewModel(
                     showMessage("Deleted $successCount/${trashedFiles.size} items")
                 }
             } catch (e: Exception) {
-                 showMessage("Delete failed: ${e.message}")
+                loadTrashedFiles()
+                showMessage("Delete failed: ${e.message}")
             } finally {
                 _isLoading.value = false
+                _operationStatus.value = OperationStatus() // Reset status
             }
         }
     }
 
     fun restoreAllFiles() {
-        viewModelScope.launch {
-            if (repository.restoreAllFiles()) {
-                loadTrashedFiles()
-            }
+        val filesToRestore = _trashedFiles.value
+        if (filesToRestore.isNotEmpty()) {
+            restoreFiles(filesToRestore)
         }
     }
 
     fun emptyTrash() {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
         viewModelScope.launch {
-            if (repository.emptyTrash()) {
-                _trashSize.value = 0 // Immediate UI update
-                loadTrashedFiles()
-                loadDashboardData() // Sync accurate data from disk
+            _isLoading.value = true
+            val filesToDelete = _trashedFiles.value
+            _operationStatus.value = OperationStatus(
+                isRunning = true,
+                type = OperationType.DELETE,
+                progress = 0f,
+                processedCount = 0,
+                totalCount = filesToDelete.size
+            )
+            
+            try {
+                if (repository.emptyTrash()) {
+                    _trashSize.value = 0 // Immediate UI update
+                    loadTrashedFiles()
+                    loadDashboardData() // Sync accurate data from disk
+                    showMessage("Trash emptied")
+                }
+            } catch (e: Exception) {
+                showMessage("Failed to empty trash: ${e.message}")
+            } finally {
+                _isLoading.value = false
+                _operationStatus.value = OperationStatus()
             }
         }
     }
@@ -567,29 +910,10 @@ class HomeViewModel(
         addToClipboard(listOf(file), operation)
     }
 
-    sealed interface OperationProgressState {
-        object Idle : OperationProgressState
-        data class Active(
-            val file: FileModel,
-            val operation: ClipboardOperation,
-            val progress: Float, // 0f to 1f
-            val bytesTransferred: Long,
-            val totalBytes: Long,
-            val startTime: Long,
-            val speedBytesPerSec: Long,
-            val currentFileIndex: Int = 0,
-            val totalFiles: Int = 1
-        ) : OperationProgressState
-    }
-
-    private val _operationProgress = MutableStateFlow<OperationProgressState>(OperationProgressState.Idle)
-    val operationProgress: StateFlow<OperationProgressState> = _operationProgress.asStateFlow()
-
     private var operationJob: kotlinx.coroutines.Job? = null
 
     fun cancelOperation() {
         operationJob?.cancel()
-        _operationProgress.value = OperationProgressState.Idle
         _isLoading.value = false
     }
 
@@ -607,44 +931,41 @@ class HomeViewModel(
             return
         }
         
-        if (_operationProgress.value is OperationProgressState.Active) {
-            android.util.Log.w("HomeViewModel", "pasteFile: Operation already in progress")
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
             return
         }
 
         operationJob = viewModelScope.launch {
             _isLoading.value = true
-            val totalBatchSize = repository.getTotalSize(filesToPaste.map { it.path })
-            val startTime = System.currentTimeMillis()
+            
+            // Immediately show banner
+            _operationStatus.value = OperationStatus(
+                isRunning = true,
+                type = if (operation == ClipboardOperation.COPY) OperationType.COPY else OperationType.MOVE,
+                progress = 0f,
+                processedCount = 0,
+                totalCount = filesToPaste.size
+            )
+            
+            val filePaths = filesToPaste.map { it.path }
+            val fileSizes = filesToPaste.map { it.size }
+            val totalBatchSize = repository.getTotalSize(filePaths)
             var totalBytesCopied = 0L
             
             var allSuccess = true
-            
+            val currentViewingPath = _currentPath.value
+            var lastShownIndex = 0
+
             filesToPaste.forEachIndexed { index, file ->
                 if (!isActive) return@forEachIndexed
                 
                 var lastUpdate = 0L
-                var fileBytesCopied = 0L
-                
-                val progressCallback: (Long, Long) -> Unit = { copied, total ->
+                val progressCallback: (Long, Long) -> Unit = { copied, _ ->
                     val now = System.currentTimeMillis()
-                    if (now - lastUpdate > 300) {
-                        fileBytesCopied = copied
-                        val overallCopied = totalBytesCopied + copied
-                        val elapsedSec = (now - startTime) / 1000f
-                        val speed = if (elapsedSec > 0) (overallCopied / elapsedSec).toLong() else 0L
-                        
-                        _operationProgress.value = OperationProgressState.Active(
-                            file = file,
-                            operation = operation,
-                            progress = if (totalBatchSize > 0) overallCopied.toFloat() / totalBatchSize else 0f,
-                            bytesTransferred = overallCopied,
-                            totalBytes = totalBatchSize,
-                            startTime = startTime,
-                            speedBytesPerSec = speed,
-                            currentFileIndex = index + 1,
-                            totalFiles = filesToPaste.size
-                        )
+                    if (now - lastUpdate > 100) { 
+                        // For Copy/Move, we mainly use per-file completion for the "one-by-one" feel
+                        // but we can update smooth progress for the current file too
                         lastUpdate = now
                     }
                 }
@@ -660,15 +981,43 @@ class HomeViewModel(
                 }
                 
                 if (success) {
-                    totalBytesCopied += file.size
+                    totalBytesCopied += if (file.isDirectory) 0 else file.size 
+                    
+                    val currentCount = index + 1
+                    // Jump logic like Delete/Restore
+                    if (currentCount == filesToPaste.size || Math.random() > 0.4) {
+                        // Refresh current view if we are pasting into it, so user sees progress
+                        if (destinationPath == currentViewingPath) {
+                            loadFiles(destinationPath)
+                        }
+
+                        // If MOVE and we are in source, remove from source
+                        if (operation == ClipboardOperation.MOVE) {
+                            val sourceParent = File(file.path).parent ?: ""
+                            if (sourceParent == currentViewingPath) {
+                                val jumpBatch = filesToPaste.slice(lastShownIndex until currentCount)
+                                val pathsToClear = jumpBatch.map { it.path }.toSet()
+                                _rawFiles.value = _rawFiles.value.filter { it.path !in pathsToClear }
+                            }
+                        }
+
+                        val unevenProgress = getUnevenProgress(currentCount - 1, filesToPaste.size, fileSizes)
+                        _operationStatus.value = _operationStatus.value.copy(
+                            progress = if (currentCount >= filesToPaste.size) 1f else unevenProgress,
+                            processedCount = currentCount
+                        )
+                        lastShownIndex = currentCount
+                    }
                 } else {
                     allSuccess = false
                 }
             }
 
-            _operationProgress.value = OperationProgressState.Idle
-            
             if (allSuccess) {
+                _operationStatus.value = _operationStatus.value.copy(progress = 1f, processedCount = filesToPaste.size)
+                // Wait for animation
+                kotlinx.coroutines.delay(200)
+                
                 if (operation == ClipboardOperation.MOVE) {
                     clearClipboard()
                 }
@@ -684,6 +1033,7 @@ class HomeViewModel(
                 loadFiles(destinationPath)
             }
             _isLoading.value = false
+            _operationStatus.value = OperationStatus() // Reset unified status
         }
     }
 
@@ -804,11 +1154,36 @@ class HomeViewModel(
     }
 
     fun deleteLargeFile(file: FileModel) {
+        if (_operationStatus.value.isRunning) {
+            showMessage("Please wait for current operation to finish")
+            return
+        }
         viewModelScope.launch {
-            if (repository.deleteFile(file.path)) {
-                _largeFiles.value = _largeFiles.value.filter { it.path != file.path }
-                _trashSize.value = repository.getTrashSize()
-                loadForecastDetails() 
+            _operationStatus.value = OperationStatus(isRunning = true, type = OperationType.TRASH, totalCount = 1)
+            
+            // Optimistic update Large Files List
+            val currentLargeFiles = _largeFiles.value
+            _largeFiles.value = currentLargeFiles.filter { it.path != file.path }
+            
+            // Optimistic update Trash
+            addOptimisticTrashItems(listOf(file))
+
+            try {
+                if (repository.deleteFile(file.path)) {
+                    loadDashboardData()
+                    loadTrashedFiles()
+                    loadForecastDetails() 
+                } else {
+                    _largeFiles.value = currentLargeFiles
+                    loadTrashedFiles()
+                    showMessage("Error deleting file")
+                }
+            } catch (e: Exception) {
+                _largeFiles.value = currentLargeFiles
+                loadTrashedFiles()
+                showMessage("Error: ${e.message}")
+            } finally {
+                _operationStatus.value = OperationStatus()
             }
         }
     }
@@ -858,6 +1233,28 @@ class HomeViewModel(
 
     fun getOtherVolumes(): List<StorageVolumeInfo> {
         return repository.getExternalVolumes()
+    }
+
+    private fun getUnevenProgress(index: Int, total: Int, sizes: List<Long>): Float {
+        if (total <= 0) return 1f
+        if (index < 0) return 0f
+        if (index >= total - 1) return 1f
+        
+        // Sum up sizes to get weights
+        val totalSize = sizes.sum().coerceAtLeast(1L)
+        
+        // Add a bit of random 'personality' to each file's contribution (±15%)
+        val random = java.util.Random(42) // Consistent for the same operation
+        val weightedSum = sizes.take(index + 1).sumOf { size ->
+            val jitter = 0.85f + random.nextFloat() * 0.3f
+            (size * jitter).toLong()
+        }
+        val totalWeightedSize = sizes.sumOf { size ->
+            val jitter = 0.85f + random.nextFloat() * 0.3f
+            (size * jitter).toLong()
+        }.coerceAtLeast(1L)
+
+        return (weightedSum.toFloat() / totalWeightedSize).coerceIn(0f, 0.99f)
     }
 }
 

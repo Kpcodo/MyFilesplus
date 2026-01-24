@@ -82,41 +82,29 @@ fun Modifier.bounceClick(
 fun Modifier.animateEnter(
     delayMillis: Int = 0
 ) = composed {
-    var visible by remember { mutableStateOf(false) }
+    val visible = remember { androidx.compose.animation.core.Animatable(0f) }
     val speed = LocalAnimationSpeed.current
     
     // Calculate stiffness based on speed preference. 
-    // Speed 1.0 = StiffnessLow (200f). 
-    // Higher speed = Higher stiffness (faster).
-    val baseStiffness = androidx.compose.animation.core.Spring.StiffnessLow
-    val effectiveStiffness = if (speed > 0) baseStiffness * (speed * speed) else baseStiffness
-
-    val alpha by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = androidx.compose.animation.core.spring(
-            stiffness = effectiveStiffness
-        ),
-        label = "AlphaAnimation"
-    )
-    
-    val translationY by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (visible) 0f else 50f,
-        animationSpec = androidx.compose.animation.core.spring(
-            dampingRatio = 0.8f,
-            stiffness = effectiveStiffness
-        ),
-        label = "TranslationAnimation"
-    )
+    // Speed 1.0 = StiffnessMediumLow (100f-200f range) for standard feel.
+    val baseStiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+    val effectiveStiffness = if (speed > 0) baseStiffness * speed else baseStiffness
 
     LaunchedEffect(Unit) {
         if (delayMillis > 0) {
             kotlinx.coroutines.delay(delayMillis.toLong())
         }
-        visible = true
+        visible.animateTo(
+            targetValue = 1f,
+            animationSpec = androidx.compose.animation.core.spring(
+                dampingRatio = 0.8f,
+                stiffness = effectiveStiffness
+            )
+        )
     }
 
     this.graphicsLayer {
-        this.alpha = alpha
-        this.translationY = translationY
+        this.alpha = visible.value
+        this.translationY = (1f - visible.value) * 50f
     }
 }

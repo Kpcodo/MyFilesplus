@@ -23,8 +23,8 @@ android {
         applicationId = "com.mfp.filemanager"
         minSdk = 26 
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.3.0"
+        versionCode = 10
+        versionName = "1.3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -79,6 +79,7 @@ dependencies {
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
     implementation("androidx.activity:activity-compose:1.10.0")
 
     // Compose
@@ -120,4 +121,11 @@ dependencies {
     implementation("io.ktor:ktor-client-content-negotiation:3.3.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.3.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    
+    // Media3 (ExoPlayer)
+    implementation("androidx.media3:media3-exoplayer:1.2.0")
+    implementation("androidx.media3:media3-session:1.2.0")
+    implementation("androidx.media3:media3-common:1.2.0")
+    implementation("androidx.palette:palette-ktx:1.0.0")
+    
 }

@@ -19,12 +19,6 @@ class SettingsRepository(private val context: Context) {
     val swipeNavigationEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[SWIPE_NAVIGATION_ENABLED] ?: false }
 
-    val swipeDeleteEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[SWIPE_DELETE_ENABLED] ?: false }
-
-    val swipeDeleteDirection: Flow<Int> = context.dataStore.data
-        .map { preferences -> preferences[SWIPE_DELETE_DIRECTION] ?: 0 } // Default 0 (Left)
-
     // Swipe to Delete - Recents
     val trashRetentionDays: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[TRASH_RETENTION_DAYS] ?: 30 } // Default 30 days
@@ -38,6 +32,9 @@ class SettingsRepository(private val context: Context) {
     val lastUpdateCheckTime: Flow<Long> = context.dataStore.data
         .map { preferences -> preferences[LAST_UPDATE_CHECK_TIME] ?: 0L }
 
+    val cacheSizeLimit: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[CACHE_SIZE_LIMIT] ?: 200 } // Default 200MB
+
     companion object {
         val THEME_MODE = intPreferencesKey("theme_mode")
         val ACCENT_COLOR = intPreferencesKey("accent_color")
@@ -46,12 +43,11 @@ class SettingsRepository(private val context: Context) {
         val VIEW_MODE = intPreferencesKey("view_mode")
         val SEARCH_BLUR_ENABLED = booleanPreferencesKey("search_blur_enabled")
         val SWIPE_NAVIGATION_ENABLED = booleanPreferencesKey("swipe_navigation_enabled")
-        val SWIPE_DELETE_ENABLED = booleanPreferencesKey("swipe_delete_enabled")
-        val SWIPE_DELETE_DIRECTION = intPreferencesKey("swipe_delete_direction") // 0 = Left, 1 = Right
         val TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
         val ANIMATION_SPEED = floatPreferencesKey("animation_speed")
         val AUTO_UPDATE_ENABLED = booleanPreferencesKey("auto_update_enabled")
         val LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
+        val CACHE_SIZE_LIMIT = intPreferencesKey("cache_size_limit")
     }
 
     val viewMode: Flow<Int> = context.dataStore.data
@@ -135,18 +131,6 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
-    suspend fun setSwipeDeleteEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[SWIPE_DELETE_ENABLED] = enabled
-        }
-    }
-
-    suspend fun setSwipeDeleteDirection(direction: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[SWIPE_DELETE_DIRECTION] = direction
-        }
-    }
-
     suspend fun setAutoUpdateEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AUTO_UPDATE_ENABLED] = enabled
@@ -156,6 +140,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLastUpdateCheckTime(time: Long) {
         context.dataStore.edit { preferences ->
             preferences[LAST_UPDATE_CHECK_TIME] = time
+        }
+    }
+
+    suspend fun setCacheSizeLimit(megabytes: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[CACHE_SIZE_LIMIT] = megabytes
         }
     }
 }

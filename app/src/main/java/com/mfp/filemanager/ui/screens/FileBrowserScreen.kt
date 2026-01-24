@@ -1,103 +1,48 @@
 package com.mfp.filemanager.ui.screens 
 
-
 import android.content.Intent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.DataUsage
-import androidx.compose.material.icons.filled.DriveFileMove
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.SortByAlpha
-import androidx.compose.material.icons.filled.VideoFile
-import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import coil.compose.SubcomposeAsyncImage
-import coil.decode.VideoFrameDecoder
-import coil.request.ImageRequest
-import coil.request.videoFrameMillis
-import coil.request.CachePolicy
-import coil.size.Precision
-import com.mfp.filemanager.data.clipboard.ClipboardOperation
 import com.mfp.filemanager.data.FileModel
 import com.mfp.filemanager.data.FileType
 import com.mfp.filemanager.data.FileUtils
-import com.mfp.filemanager.ui.components.InlineFileMenu
-import com.mfp.filemanager.ui.components.FileItemMenu
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import com.mfp.filemanager.ui.animations.bounceClick
-import com.mfp.filemanager.ui.animations.animateEnter
-import com.mfp.filemanager.ui.viewmodels.HomeViewModel
-import com.mfp.filemanager.ui.SortType
+import com.mfp.filemanager.data.clipboard.ClipboardOperation
 import com.mfp.filemanager.ui.SortOrder
+import com.mfp.filemanager.ui.SortType
 import com.mfp.filemanager.ui.ViewType
-import androidx.compose.foundation.lazy.itemsIndexed
+import com.mfp.filemanager.ui.animations.animateEnter
+import com.mfp.filemanager.ui.animations.bounceClick
+import com.mfp.filemanager.ui.components.*
+import com.mfp.filemanager.ui.viewmodels.HomeViewModel
+import com.mfp.filemanager.ui.components.FileListItem
+import com.mfp.filemanager.ui.components.FileGridItem
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,7 +62,8 @@ fun FileBrowserScreen(
     val iconSize by viewModel.iconSize.collectAsState()
     val clipboardFiles by viewModel.clipboardFiles.collectAsState()
     val clipboardOperation by viewModel.clipboardOperation.collectAsState()
-    val swipeDeleteEnabled by viewModel.swipeDeleteEnabled.collectAsState()
+    val operationStatus by viewModel.operationStatus.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     val selectionMode by viewModel.isBrowserSelectionMode.collectAsState()
     val selectedItems by viewModel.selectedBrowserFiles.collectAsState()
@@ -126,7 +72,7 @@ fun FileBrowserScreen(
     var fileToInfo by remember { mutableStateOf<FileModel?>(null) }
     var showBatchRenameDialog by remember { mutableStateOf(false) }
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackBarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
     // Load files when the path changes
@@ -173,10 +119,10 @@ fun FileBrowserScreen(
                 FileBrowserTopAppBar(viewModel, path, title, onBack, onSearchClick)
             }
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = { SnackbarHost(hostState = snackBarHostState) },
         bottomBar = {
             if (clipboardFiles.isNotEmpty() && clipboardOperation != null) {
-                androidx.compose.material3.BottomAppBar(
+                BottomAppBar(
                     actions = {
                         TextButton(onClick = { viewModel.clearClipboard() }) { Text("Cancel") }
                         Spacer(modifier = Modifier.weight(1f))
@@ -186,7 +132,7 @@ fun FileBrowserScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.weight(1f))
-                        androidx.compose.material3.Button(
+                        Button(
                             onClick = {
                                 android.util.Log.d("FileBrowserScreen", "${if (clipboardOperation == ClipboardOperation.COPY) "Paste" else "Move Here"} clicked! path=$path, filesCount=${clipboardFiles.size}")
                                 viewModel.pasteFile(path)
@@ -195,16 +141,14 @@ fun FileBrowserScreen(
                             Text(if (clipboardOperation == ClipboardOperation.COPY) "Paste" else "Move Here")
                         }
                     }
-                ) 
+                )
             }
         }
     ) { padding ->
-        val operationProgress by viewModel.operationProgress.collectAsState()
-        
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             PullToRefreshBox(
-                isRefreshing = isLoading,
-                onRefresh = { viewModel.loadFiles(path) },
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.loadFiles(path, isRefresh = true) },
                 modifier = Modifier.fillMaxSize()
             ) {
                 Box(
@@ -218,7 +162,7 @@ fun FileBrowserScreen(
                                 "move" -> viewModel.addSingleToClipboard(file, ClipboardOperation.MOVE)
                                 "copy" -> viewModel.addSingleToClipboard(file, ClipboardOperation.COPY)
                                 "rename" -> { fileToRename = file }
-                                "delete" -> viewModel.deleteFile(file.path) { viewModel.loadFiles(path) }
+                                "delete" -> viewModel.deleteFile(file.path, path)
                                 "extract" -> viewModel.extractFile(file) { viewModel.loadFiles(path) }
                                 "info" -> { 
                                     fileToInfo = file 
@@ -239,76 +183,27 @@ fun FileBrowserScreen(
                             val isCompact = viewType == ViewType.COMPACT
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 itemsIndexed(files, key = { _, file -> file.path }) { index, file ->
-                                    Box(modifier = Modifier.animateEnter(delayMillis = index * 50)) {
-                                    // Swipe to Delete (Only active in List/Compact mode and NOT in selection/search mode ideally, effectively same as Recents)
-                                    val dismissState = rememberSwipeToDismissBoxState(
-                                        confirmValueChange = { value ->
-                                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                                viewModel.deleteFile(file.path) {
-                                                    viewModel.loadFiles(path)
-                                                }
-                                                true 
+                                    // Cap delay to avoid long waits for items at bottom of list
+                                    val delay = (index % 10) * 30 
+                                    Box(modifier = Modifier.animateEnter(delayMillis = delay)) {
+                                    FileListItem(
+                                        file = file,
+                                        isSelected = file.path in selectedItems,
+                                        selectionMode = selectionMode,
+                                        iconSize = iconSize,
+                                        isCompact = isCompact,
+                                        onClick = {
+                                            if (selectionMode) {
+                                                viewModel.toggleBrowserSelection(file.path)
                                             } else {
-                                                false
+                                                if (file.isDirectory) onDirectoryClick(file) else onFileClick(file)
                                             }
-                                        }
+                                        },
+                                        onLongClick = {
+                                            viewModel.toggleBrowserSelection(file.path)
+                                        },
+                                        onMenuAction = { action -> onMenuAction(file, action) }
                                     )
-
-                                    if(selectionMode) {
-                                         // specific path for selection mode (no swipe)
-                                         FileListItem(
-                                            file = file,
-                                            isSelected = file.path in selectedItems,
-                                            selectionMode = selectionMode,
-                                            iconSize = iconSize,
-                                            isCompact = isCompact,
-                                            onClick = { viewModel.toggleBrowserSelection(file.path) },
-                                            onLongClick = { viewModel.toggleBrowserSelection(file.path) },
-                                            onMenuAction = { action -> onMenuAction(file, action) }
-                                        )
-                                    } else {
-                                        SwipeToDismissBox(
-                                            state = dismissState,
-                                            backgroundContent = {
-                                                val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
-                                                    MaterialTheme.colorScheme.errorContainer
-                                                } else {
-                                                    Color.Transparent
-                                                }
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .background(color)
-                                                        .padding(horizontal = 20.dp),
-                                                    contentAlignment = Alignment.CenterEnd
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.Delete,
-                                                        contentDescription = "Delete",
-                                                        tint = MaterialTheme.colorScheme.onErrorContainer
-                                                    )
-                                                }
-                                            },
-                                            enableDismissFromStartToEnd = false,
-                                            enableDismissFromEndToStart = swipeDeleteEnabled,
-                                            content = {
-                                                 FileListItem(
-                                                    file = file,
-                                                    isSelected = file.path in selectedItems,
-                                                    selectionMode = selectionMode,
-                                                    iconSize = iconSize,
-                                                    isCompact = isCompact,
-                                                    onClick = {
-                                                        if (file.isDirectory) onDirectoryClick(file) else onFileClick(file)
-                                                    },
-                                                    onLongClick = {
-                                                        viewModel.toggleBrowserSelection(file.path) 
-                                                    },
-                                                    onMenuAction = { action -> onMenuAction(file, action) }
-                                                )
-                                            }
-                                        )
-                                    }
                                 }
                             }
                             }
@@ -337,24 +232,6 @@ fun FileBrowserScreen(
                             }
                         }
                     }
-                }
-            }
-            
-            if (operationProgress is com.mfp.filemanager.ui.viewmodels.HomeViewModel.OperationProgressState.Active) {
-                val state = operationProgress as com.mfp.filemanager.ui.viewmodels.HomeViewModel.OperationProgressState.Active
-                val title = if (state.operation == ClipboardOperation.COPY) {
-                    "Copying ${state.currentFileIndex}/${state.totalFiles}: ${state.file.name}"
-                } else {
-                    "Moving ${state.currentFileIndex}/${state.totalFiles}: ${state.file.name}"
-                }
-                
-                Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-                    com.mfp.filemanager.ui.components.OperationProgressCard(
-                        operationTitle = title,
-                        speed = "${FileUtils.formatSize(state.speedBytesPerSec)}/s",
-                        progress = state.progress,
-                        onCancel = { viewModel.cancelOperation() }
-                    )
                 }
             }
         }
@@ -396,7 +273,7 @@ fun FileBrowserScreen(
             onDismissRequest = { fileToInfo = null },
             title = { Text("File Info") },
             text = {
-                androidx.compose.foundation.layout.Column {
+                Column {
                     Text("Name: ${file.name}")
                     Text("Path: ${file.path}")
                     Text("Size: ${FileUtils.formatSize(file.size)}")
@@ -413,299 +290,8 @@ fun FileBrowserScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun FileListItem(
-    file: FileModel,
-    isSelected: Boolean,
-    selectionMode: Boolean,
-    iconSize: Float,
-    isCompact: Boolean = false,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onMenuAction: (String) -> Unit
-) {
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
-    var showMenu by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-            .background(backgroundColor)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .padding(horizontal = 16.dp, vertical = if (isCompact) 2.dp else 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FileThumbnail(file, modifier = Modifier.size(48.dp * iconSize), iconSize = iconSize)
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val subtitle = if (file.isDirectory) {
-                    "${file.itemCount} items"
-                } else {
-                    "${FileUtils.formatSize(file.size)} | ${FileUtils.formatDate(file.dateModified)}"
-                }
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (selectionMode) {
-                Checkbox(checked = isSelected, onCheckedChange = { onClick() }, modifier = Modifier.padding(start = 16.dp))
-            } else {
-                IconButton(onClick = { showMenu = !showMenu }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More Options",
-                        modifier = Modifier.bounceClick()
-                    )
-                }
-            }
-        }
-        
-        if (showMenu) {
-            InlineFileMenu(
-                onMove = { showMenu = false; onMenuAction("move") },
-                onCopy = { showMenu = false; onMenuAction("copy") },
-                onRename = { showMenu = false; onMenuAction("rename") },
-                onDelete = { showMenu = false; onMenuAction("delete") },
-                onExtract = if (file.type == FileType.ARCHIVE) { { showMenu = false; onMenuAction("extract") } } else null,
-                onInfo = { 
-                    onMenuAction("info") 
-                    // Keep menu open potentially to avoid race condition, or just debugging.
-                    showMenu = false 
-                },
-                onShare = { showMenu = false; onMenuAction("share") }
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun FileGridItem(
-    file: FileModel,
-    isSelected: Boolean,
-    selectionMode: Boolean,
-    iconSize: Float,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onMenuAction: (String) -> Unit
-) {
-    var showMenu by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(4.dp)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface)
-    ) {
-        Column {
-            // Top Visual Section
-            val adjustedIconSize = if (file.isDirectory) iconSize * 2.5f else iconSize
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f) // Square top section
-                    .background(if (file.isDirectory) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                FileThumbnail(
-                    file = file,
-                    modifier = Modifier.size(64.dp * adjustedIconSize),
-                    iconSize = adjustedIconSize,
-                    transparentBackground = true // New param to remove inner box background if needed
-                )
-            }
-
-            // Bottom Info Section
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = file.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = if (file.isDirectory) "${file.itemCount} items" else FileUtils.formatSize(file.size),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                if (selectionMode) {
-                    Checkbox(checked = isSelected, onCheckedChange = { onClick() })
-                } else {
-                    Box {
-                        IconButton(
-                            onClick = { showMenu = true },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More Options")
-                        }
-                        FileItemMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            onMove = { showMenu = false; onMenuAction("move") },
-                            onCopy = { showMenu = false; onMenuAction("copy") },
-                            onRename = { showMenu = false; onMenuAction("rename") },
-                            onDelete = { showMenu = false; onMenuAction("delete") },
-                            onExtract = if (file.type == FileType.ARCHIVE) { { showMenu = false; onMenuAction("extract") } } else null,
-                            onInfo = { showMenu = false; onMenuAction("info") },
-                            onShare = { showMenu = false; onMenuAction("share") }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FileThumbnail(
-    file: FileModel,
-    modifier: Modifier = Modifier,
-    iconSize: Float = 1.0f,
-    transparentBackground: Boolean = false
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (transparentBackground) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant),
-        contentAlignment = Alignment.Center
-    ) {
-        if (file.isDirectory) {
-            Icon(
-                imageVector = Icons.Default.Folder,
-                contentDescription = file.name,
-                modifier = Modifier.size(32.dp * iconSize),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        } else {
-            when (file.type) {
-                FileType.IMAGE -> {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(File(file.path))
-                            .crossfade(false)
-                            .build(),
-                        contentDescription = file.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        loading = {
-                            Icon(
-                                imageVector = Icons.Default.Image,
-                                contentDescription = file.name,
-                                modifier = Modifier.size(32.dp * iconSize),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        error = {
-                            Icon(
-                                imageVector = Icons.Default.Image,
-                                contentDescription = file.name,
-                                modifier = Modifier.size(32.dp * iconSize),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-                }
-                FileType.VIDEO -> {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(File(file.path))
-                            .videoFrameMillis(0)
-                            .size(256)
-                            .precision(Precision.INEXACT)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .crossfade(false)
-                            .build(),
-                        contentDescription = file.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        loading = {
-                            Icon(
-                                imageVector = Icons.Default.VideoFile,
-                                contentDescription = file.name,
-                                modifier = Modifier.size(32.dp * iconSize),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        error = {
-                            Icon(
-                                imageVector = Icons.Default.VideoFile,
-                                contentDescription = file.name,
-                                modifier = Modifier.size(32.dp * iconSize),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-                }
-                FileType.AUDIO -> {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = file.name,
-                        modifier = Modifier.size(32.dp * iconSize),
-                        tint = Color(0xFF8E24AA) // Purple for Audio
-                    )
-                }
-                FileType.APK -> {
-                    Icon(
-                        imageVector = Icons.Default.Android,
-                        contentDescription = file.name,
-                        modifier = Modifier.size(32.dp * iconSize),
-                        tint = Color(0xFF4CAF50) // Green for Android
-                    )
-                }
-                FileType.DOCUMENT -> {
-                    Icon(
-                        imageVector = Icons.Default.Description,
-                        contentDescription = file.name,
-                        modifier = Modifier.size(32.dp * iconSize),
-                        tint = Color(0xFFFBC02D) // Yellow for Docs
-                    )
-                }
-                FileType.ARCHIVE -> {
-                    Icon(
-                        imageVector = Icons.Default.Folder, // Fallback for better compatibility
-                        contentDescription = file.name,
-                        modifier = Modifier.size(32.dp * iconSize),
-                        tint = MaterialTheme.colorScheme.secondary
-                    )
-                }
-                else -> {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
-                        contentDescription = file.name,
-                        modifier = Modifier.size(32.dp * iconSize),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FileBrowserTopAppBar(
     viewModel: HomeViewModel,
@@ -719,7 +305,14 @@ fun FileBrowserTopAppBar(
     val isRoot = path == FileUtils.getInternalStoragePath()
 
     TopAppBar(
-        title = { Text(title ?: if (isRoot) "Internal Storage" else path.substringAfterLast("/")) },
+        title = { 
+            Text(
+                text = title ?: if (isRoot) "Internal Storage" else path.substringAfterLast("/"),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.basicMarquee()
+            ) 
+        },
         navigationIcon = {
             if (!isRoot) {
                 IconButton(onClick = onBack) {
@@ -801,7 +394,7 @@ fun SelectionTopAppBar(
                 Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy")
             }
             IconButton(onClick = onMove) {
-                Icon(Icons.Default.DriveFileMove, contentDescription = "Move")
+                Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = "Move")
             }
             IconButton(onClick = onBatchRename) {
                 Icon(Icons.Default.DriveFileRenameOutline, contentDescription = "Batch Rename")

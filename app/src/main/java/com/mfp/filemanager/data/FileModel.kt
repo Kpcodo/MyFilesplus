@@ -15,7 +15,8 @@ data class FileModel(
     val mimeType: String?,
     val type: FileType,
     val isDirectory: Boolean,
-    val itemCount: Int = 0
+    val itemCount: Int = 0,
+    val artist: String? = null
 ) {
     val date: Date get() = Date(dateModified)
 }

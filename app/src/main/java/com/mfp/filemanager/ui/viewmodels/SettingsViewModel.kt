@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.Dispatchers
 
 data class SettingsState(
     val themeMode: Int = 0,
@@ -36,22 +37,13 @@ data class SettingsState(
     val viewMode: Int = 0,
     val isBlurEnabled: Boolean = true,
     val isSwipeNavigationEnabled: Boolean = false,
-    val swipeDeleteEnabled: Boolean = false,
-    val swipeDeleteDirection: Int = 0, // 0=Left, 1=Right
     val trashRetentionDays: Int = 30,
     val animationSpeed: Float = 1.0f,
-    val autoUpdateEnabled: Boolean = false
+    val autoUpdateEnabled: Boolean = false,
+    val cacheSizeLimit: Int = 200,
+    val currentCacheSize: Long = 0L
 )
 
-sealed class UpdateCheckState {
-    object Idle : UpdateCheckState()
-    object Checking : UpdateCheckState()
-    data class UpdateAvailable(val release: GitHubRelease) : UpdateCheckState()
-    data class Downloading(val progress: Float) : UpdateCheckState()
-    data class DownloadFinished(val file: File) : UpdateCheckState()
-    object UpToDate : UpdateCheckState()
-    data class Error(val message: String) : UpdateCheckState()
-}
 
 class SettingsViewModel(private val repository: SettingsRepository) : ViewModel() {
 
@@ -71,6 +63,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
     val updateState: StateFlow<UpdateCheckState> = _updateState.asStateFlow()
+
+    private val _currentCacheSize = MutableStateFlow(0L)
 
     // CONSTANTS
     private val githubOwner = "Kpcodo"
@@ -211,16 +205,16 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         settings.copy(isBlurEnabled = blur)
     }.combine(repository.swipeNavigationEnabled) { settings, swipe ->
         settings.copy(isSwipeNavigationEnabled = swipe)
-    }.combine(repository.swipeDeleteEnabled) { settings, del ->
-        settings.copy(swipeDeleteEnabled = del)
-    }.combine(repository.swipeDeleteDirection) { settings, dir ->
-        settings.copy(swipeDeleteDirection = dir)
     }.combine(repository.trashRetentionDays) { settings, days ->
         settings.copy(trashRetentionDays = days)
     }.combine(repository.animationSpeed) { settings, speed ->
         settings.copy(animationSpeed = speed)
     }.combine(repository.autoUpdateEnabled) { settings, auto ->
         settings.copy(autoUpdateEnabled = auto)
+    }.combine(repository.cacheSizeLimit) { settings, limit ->
+        settings.copy(cacheSizeLimit = limit)
+    }.combine(_currentCacheSize) { settings, size ->
+        settings.copy(currentCacheSize = size)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -281,18 +275,6 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         }
     }
 
-    fun toggleSwipeDelete(enabled: Boolean) {
-        viewModelScope.launch {
-            repository.setSwipeDeleteEnabled(enabled)
-        }
-    }
-
-    fun setSwipeDeleteDirection(direction: Int) {
-        viewModelScope.launch {
-            repository.setSwipeDeleteDirection(direction)
-        }
-    }
-    
     fun setTrashRetentionDays(days: Int) {
         viewModelScope.launch {
             repository.setTrashRetentionDays(days)
@@ -302,6 +284,42 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleAutoUpdateEnabled(enabled: Boolean) {
         viewModelScope.launch {
             repository.setAutoUpdateEnabled(enabled)
+        }
+    }
+
+    fun setCacheSizeLimit(megabytes: Int) {
+        viewModelScope.launch {
+            repository.setCacheSizeLimit(megabytes)
+        }
+    }
+
+    fun calculateCacheSize(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cacheDir = context.cacheDir
+            var size = 0L
+            if (cacheDir.exists()) {
+                cacheDir.walkTopDown().forEach { file ->
+                   if (file.isFile) size += file.length()
+                }
+            }
+            _currentCacheSize.value = size
+        }
+    }
+
+    fun clearThumbnailsCache(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val imageLoader = coil.Coil.imageLoader(context)
+                imageLoader.memoryCache?.clear()
+                imageLoader.diskCache?.clear()
+                
+                context.cacheDir?.listFiles()?.forEach { 
+                    it.deleteRecursively()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            calculateCacheSize(context)
         }
     }
 

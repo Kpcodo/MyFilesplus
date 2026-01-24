@@ -1,0 +1,52 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.1.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+
+> Task :app:processDebugMainManifest FAILED
+G:\DEVS\Android projects\FileManagerApp\app\src\main\AndroidManifest.xml Error:
+	uses-sdk:minSdkVersion 26 cannot be smaller than version 31 declared in library [androidx.pdf:pdf-viewer:1.0.0-alpha05] G:\DEVS\Gradle\caches\9.1.0\transforms\3a27b08ae176d7147f6f470fd9141156\workspace\transformed\jetified-pdf-viewer-1.0.0-alpha05\AndroidManifest.xml as the library might be using APIs not available in 26
+	Suggestion: use a compatible library with a minSdk of at most 26,
+		or increase this project's minSdk version to at least 31,
+		or use tools:overrideLibrary="androidx.pdf" to force usage (may lead to runtime failures)
+
+See https://developer.android.com/r/studio-ui/build/manifest-merger for more information about the manifest merger.
+
+
+> Task :app:mergeDebugResources
+
+[Incubating] Problems report is available at: file:///G:/DEVS/Android%20projects/FileManagerApp/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:processDebugMainManifest'.
+> Manifest merger failed : uses-sdk:minSdkVersion 26 cannot be smaller than version 31 declared in library [androidx.pdf:pdf-viewer:1.0.0-alpha05] G:\DEVS\Gradle\caches\9.1.0\transforms\3a27b08ae176d7147f6f470fd9141156\workspace\transformed\jetified-pdf-viewer-1.0.0-alpha05\AndroidManifest.xml as the library might be using APIs not available in 26
+  	Suggestion: use a compatible library with a minSdk of at most 26,
+  		or increase this project's minSdk version to at least 31,
+  		or use tools:overrideLibrary="androidx.pdf" to force usage (may lead to runtime failures)
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to generate a Build Scan (Powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.1.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 36s
+10 actionable tasks: 3 executed, 7 up-to-date

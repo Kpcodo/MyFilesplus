@@ -8,9 +8,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -34,7 +40,7 @@ import com.mfp.filemanager.data.FileType
 import com.mfp.filemanager.ui.viewmodels.HomeViewModel
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MediaViewerScreen(
     viewModel: HomeViewModel,
@@ -61,6 +67,8 @@ fun MediaViewerScreen(
         pageCount = { mediaList.size }
     )
 
+    var isZoomed by remember { mutableStateOf(false) }
+
     Scaffold(
         containerColor = Color.Black,
         topBar = {
@@ -68,7 +76,13 @@ fun MediaViewerScreen(
             TopAppBar(
                 title = { 
                     Column {
-                        Text(currentFile?.name ?: "", style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                        Text(
+                            text = currentFile?.name ?: "", 
+                            style = MaterialTheme.typography.titleMedium, 
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.basicMarquee()
+                        )
                         if (mediaList.size > 1) {
                             Text(
                                 "${pagerState.currentPage + 1} / ${mediaList.size}",
@@ -99,9 +113,8 @@ fun MediaViewerScreen(
                             Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White)
                         }
                         IconButton(onClick = {
-                            viewModel.deleteFile(file.path) {
-                                onBack()
-                            }
+                            viewModel.deleteFile(file.path, file.path.substringBeforeLast("/", ""))
+                            onBack()
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White)
                         }
@@ -120,17 +133,17 @@ fun MediaViewerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            pageSpacing = 16.dp
+            pageSpacing = 16.dp,
+            userScrollEnabled = !isZoomed
         ) { pageIndex ->
             val file = mediaList[pageIndex]
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (file.type == FileType.VIDEO) {
                     VideoPlayer(file.path)
                 } else {
-                    AsyncImage(
+                    ZoomableImage(
                         model = Uri.fromFile(File(file.path)),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize()
+                        onZoomChange = { isZoomed = it }
                     )
                 }
             }
@@ -375,4 +388,67 @@ private fun formatMillis(millis: Long): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%02d:%02d".format(minutes, seconds)
+}
+
+@Composable
+fun ZoomableImage(
+    model: Any?,
+    contentDescription: String? = null,
+    onZoomChange: (Boolean) -> Unit
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+
+    LaunchedEffect(scale) {
+        onZoomChange(scale > 1.05f)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(androidx.compose.ui.graphics.RectangleShape)
+            .pointerInput(Unit) {
+                detectTransformGestures { _, pan, zoom, _ ->
+                    val newScale = (scale * zoom).coerceIn(1f, 4f)
+                    scale = newScale
+                    
+                    if (scale > 1f) {
+                         val maxTranslateX = (size.width * (scale - 1)) / 2
+                         val maxTranslateY = (size.height * (scale - 1)) / 2
+                         
+                         offset = androidx.compose.ui.geometry.Offset(
+                            x = (offset.x + pan.x * scale).coerceIn(-maxTranslateX, maxTranslateX),
+                            y = (offset.y + pan.y * scale).coerceIn(-maxTranslateY, maxTranslateY)
+                        )
+                    } else {
+                        offset = androidx.compose.ui.geometry.Offset.Zero
+                    }
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        if (scale > 1f) {
+                            scale = 1f
+                            offset = androidx.compose.ui.geometry.Offset.Zero
+                        } else {
+                            scale = 2.5f
+                        }
+                    }
+                )
+            }
+    ) {
+         AsyncImage(
+            model = model,
+            contentDescription = contentDescription,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                }
+        )
+    }
 }
