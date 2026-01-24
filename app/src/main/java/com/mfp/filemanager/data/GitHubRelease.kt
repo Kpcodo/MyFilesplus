@@ -2,6 +2,8 @@ package com.mfp.filemanager.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.mfp.filemanager.utils.MarkdownUtils
+
 
 @Serializable
 data class GitHubRelease(
@@ -15,7 +17,7 @@ data class GitHubRelease(
 
     val releaseDescription: String
         get() {
-            if (!body.isNullOrBlank()) return body
+            if (!body.isNullOrBlank()) return MarkdownUtils.stripMarkdown(body)
             
             return relatedCommits?.joinToString(separator = "\n\n") { commit ->
                 val message = commit.commit.message.substringBefore("\n")
@@ -35,6 +37,7 @@ data class GitHubRelease(
                  "$prefix $message"
             } ?: "No release notes available"
         }
+
 }
 
 @Serializable
