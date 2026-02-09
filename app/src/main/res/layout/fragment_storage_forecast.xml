@@ -207,7 +207,7 @@
                             android:layout_height="24dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_check_circle_24"
-                            app:tint="@color/white" />
+                            app:tint="@color/forecast_text_primary_adaptive" />
                     </com.google.android.material.card.MaterialCardView>
 
                     <TextView
@@ -216,8 +216,8 @@
                         android:layout_marginStart="16dp"
                         android:layout_weight="1"
                         android:text="Free Space"
-                        android:textColor="@color/white"
-                        android:textSize="16sp" />
+                        android:textColor="@color/forecast_text_primary_adaptive"
+                        android:textSize="14sp" />
 
                     <TextView
                         android:id="@+id/text_free_space_value"
@@ -249,12 +249,15 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
                              <com.google.android.material.card.MaterialCardView android:layout_width="32dp" android:layout_height="32dp" app:cardBackgroundColor="@color/category_apps" app:cardCornerRadius="8dp" app:cardElevation="0dp">
-                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_android_24" app:tint="@color/white" />
+                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_android_24" app:tint="@color/forecast_text_primary_adaptive" />
                              </com.google.android.material.card.MaterialCardView>
-                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Apps &amp; Data" android:textColor="@color/white" android:textSize="14sp" />
+                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Apps" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
                         </LinearLayout>
-                        <TextView android:id="@+id/text_apps_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="97.19 GB" android:textColor="@color/white" android:textSize="14sp" />
-                        <View android:layout_width="match_parent" android:layout_height="2dp" android:layout_marginTop="8dp" android:background="@color/category_apps" />
+                        <TextView android:id="@+id/text_apps_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="97.19 GB" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="8dp" android:background="@color/forecast_legend_track" android:orientation="horizontal">
+                            <View android:id="@+id/line_apps" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.4" android:background="@color/category_apps" />
+                            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.6" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -269,12 +272,15 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
                              <com.google.android.material.card.MaterialCardView android:layout_width="32dp" android:layout_height="32dp" app:cardBackgroundColor="@color/category_videos" app:cardCornerRadius="8dp" app:cardElevation="0dp">
-                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_video_file_24" app:tint="@color/white" />
+                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_video_file_24" app:tint="@color/forecast_text_primary_adaptive" />
                              </com.google.android.material.card.MaterialCardView>
-                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Videos" android:textColor="@color/white" android:textSize="14sp" />
+                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Videos" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
                         </LinearLayout>
-                        <TextView android:id="@+id/text_videos_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="30.23 GB" android:textColor="@color/white" android:textSize="14sp" />
-                        <View android:layout_width="match_parent" android:layout_height="2dp" android:layout_marginTop="8dp" android:background="@color/category_videos" />
+                        <TextView android:id="@+id/text_videos_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="30.23 GB" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="8dp" android:background="@color/forecast_legend_track" android:orientation="horizontal">
+                            <View android:id="@+id/line_videos" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.2" android:background="@color/category_videos" />
+                            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.8" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -289,12 +295,15 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
                              <com.google.android.material.card.MaterialCardView android:layout_width="32dp" android:layout_height="32dp" app:cardBackgroundColor="@color/category_images" app:cardCornerRadius="8dp" app:cardElevation="0dp">
-                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_image_24" app:tint="@color/white" />
+                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_image_24" app:tint="@color/forecast_text_primary_adaptive" />
                              </com.google.android.material.card.MaterialCardView>
-                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Images" android:textColor="@color/white" android:textSize="14sp" />
+                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Images" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
                         </LinearLayout>
-                        <TextView android:id="@+id/text_images_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="6.98 GB" android:textColor="@color/white" android:textSize="14sp" />
-                        <View android:layout_width="match_parent" android:layout_height="2dp" android:layout_marginTop="8dp" android:background="@color/category_images" />
+                        <TextView android:id="@+id/text_images_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="6.98 GB" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="8dp" android:background="@color/forecast_legend_track" android:orientation="horizontal">
+                            <View android:id="@+id/line_images" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.1" android:background="@color/category_images" />
+                            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.9" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -309,12 +318,15 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
                              <com.google.android.material.card.MaterialCardView android:layout_width="32dp" android:layout_height="32dp" app:cardBackgroundColor="@color/category_docs" app:cardCornerRadius="8dp" app:cardElevation="0dp">
-                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_insert_drive_file_24" app:tint="@color/white" />
+                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_insert_drive_file_24" app:tint="@color/forecast_text_primary_adaptive" />
                              </com.google.android.material.card.MaterialCardView>
-                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Documents" android:textColor="@color/white" android:textSize="14sp" />
+                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Documents" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
                         </LinearLayout>
-                        <TextView android:id="@+id/text_docs_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="269.31 MB" android:textColor="@color/white" android:textSize="14sp" />
-                        <View android:layout_width="match_parent" android:layout_height="2dp" android:layout_marginTop="8dp" android:background="@color/category_docs" />
+                        <TextView android:id="@+id/text_docs_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="269.31 MB" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="8dp" android:background="@color/forecast_legend_track" android:orientation="horizontal">
+                            <View android:id="@+id/line_docs" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.05" android:background="@color/category_docs" />
+                            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.95" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -329,12 +341,15 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
                              <com.google.android.material.card.MaterialCardView android:layout_width="32dp" android:layout_height="32dp" app:cardBackgroundColor="@color/category_audio" app:cardCornerRadius="8dp" app:cardElevation="0dp">
-                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_music_note_24" app:tint="@color/white" />
+                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_music_note_24" app:tint="@color/forecast_text_primary_adaptive" />
                              </com.google.android.material.card.MaterialCardView>
-                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Audio" android:textColor="@color/white" android:textSize="14sp" />
+                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Audio" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
                         </LinearLayout>
-                        <TextView android:id="@+id/text_audio_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="94.54 MB" android:textColor="@color/white" android:textSize="14sp" />
-                        <View android:layout_width="match_parent" android:layout_height="2dp" android:layout_marginTop="8dp" android:background="@color/category_audio" />
+                        <TextView android:id="@+id/text_audio_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="94.54 MB" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="8dp" android:background="@color/forecast_legend_track" android:orientation="horizontal">
+                            <View android:id="@+id/line_audio" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.05" android:background="@color/category_audio" />
+                            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.95" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -349,12 +364,15 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
                              <com.google.android.material.card.MaterialCardView android:layout_width="32dp" android:layout_height="32dp" app:cardBackgroundColor="@color/category_others" app:cardCornerRadius="8dp" app:cardElevation="0dp">
-                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_more_horiz_24" app:tint="@color/white" />
+                                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:src="@drawable/ic_more_horiz_24" app:tint="@color/forecast_text_primary_adaptive" />
                              </com.google.android.material.card.MaterialCardView>
-                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Others" android:textColor="@color/white" android:textSize="14sp" />
+                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:text="Others" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
                         </LinearLayout>
-                        <TextView android:id="@+id/text_others_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="3.56 MB" android:textColor="@color/white" android:textSize="14sp" />
-                        <View android:layout_width="match_parent" android:layout_height="2dp" android:layout_marginTop="8dp" android:background="@color/category_others" />
+                        <TextView android:id="@+id/text_others_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="end" android:text="3.56 MB" android:textColor="@color/forecast_text_primary_adaptive" android:textSize="14sp" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="8dp" android:background="@color/forecast_legend_track" android:orientation="horizontal">
+                            <View android:id="@+id/line_others" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.05" android:background="@color/category_others" />
+                            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.95" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 

@@ -32,10 +32,10 @@
         <item name="colorSurfaceVariant">@color/surface_dark</item>
         <item name="colorOnSurface">@color/white</item>
         <item name="colorOnSurfaceVariant">@color/text_white</item>
-        <item name="colorSurfaceContainer" tools:targetApi="33">@color/surface_dark</item>
-        <item name="colorSurfaceContainerLow" tools:targetApi="33">@color/surface_dark</item>
-        <item name="colorSurfaceContainerHigh" tools:targetApi="33">@color/surface_dark</item>
-        <item name="colorSurfaceContainerHighest" tools:targetApi="33">@color/surface_dark</item>
+        <item name="colorSurfaceContainer" tools:targetApi="33">#1E1E1E</item>
+        <item name="colorSurfaceContainerLow" tools:targetApi="33">#181818</item>
+        <item name="colorSurfaceContainerHigh" tools:targetApi="33">#252525</item>
+        <item name="colorSurfaceContainerHighest" tools:targetApi="33">#2C2C2C</item>
     </style>
     
     <style name="Theme.FileManager.Amoled" parent="Theme.Material3.DayNight.NoActionBar">
@@ -47,10 +47,10 @@
         <item name="colorSurfaceVariant">@color/black</item>
         <item name="colorOnSurface">@color/white</item>
         <item name="colorOnSurfaceVariant">@color/white</item>
-        <item name="colorSurfaceContainer" tools:targetApi="33">@color/black</item>
-        <item name="colorSurfaceContainerLow" tools:targetApi="33">@color/black</item>
-        <item name="colorSurfaceContainerHigh" tools:targetApi="33">@color/black</item>
-        <item name="colorSurfaceContainerHighest" tools:targetApi="33">@color/black</item>
+        <item name="colorSurfaceContainer" tools:targetApi="33">#0D0D0D</item>
+        <item name="colorSurfaceContainerLow" tools:targetApi="33">#050505</item>
+        <item name="colorSurfaceContainerHigh" tools:targetApi="33">#151515</item>
+        <item name="colorSurfaceContainerHighest" tools:targetApi="33">#202020</item>
     </style>
 
     <style name="FileActionButtonStyle">

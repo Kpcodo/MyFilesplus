@@ -696,7 +696,7 @@ class FileRepository(private val context: Context) {
                 
                 try {
                     val stats = storageStatsManager.queryStatsForUser(storageUuid, userHandle)
-                    size = stats.appBytes + stats.dataBytes + stats.cacheBytes
+                    size = stats.appBytes
                 } catch (e: Exception) {
                     // Critical Fallback: Avoid ANY binder calls in a loop.
                     // Just use a simple File length check for the APKs. 

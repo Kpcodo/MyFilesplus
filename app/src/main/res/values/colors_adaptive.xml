@@ -37,5 +37,8 @@
     <color name="forecast_card_text_adaptive">#FFFFFF</color> 
     <!-- Suggestion Action Color (Clear) -->
     <color name="forecast_action_adaptive">#D32F2F</color>
+    
+    <!-- Legend Track Background -->
+    <color name="forecast_legend_track">#EBEBEB</color>
 
 </resources>

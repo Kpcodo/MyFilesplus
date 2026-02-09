@@ -30,13 +30,13 @@ class LineChartView @JvmOverloads constructor(
     }
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.forecast_text_secondary).withAlpha(30)
+        color = ContextCompat.getColor(context, R.color.forecast_text_secondary_adaptive).withAlpha(40)
         style = Paint.Style.STROKE
         strokeWidth = 2f
     }
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.forecast_text_secondary)
+        color = ContextCompat.getColor(context, R.color.forecast_text_secondary_adaptive)
         textSize = 28f
         textAlign = Paint.Align.CENTER
     }

@@ -101,6 +101,14 @@ class StorageForecastFragment : Fragment() {
                         setWeight(binding.barAudio, info.audioBytes / total)
                         setWeight(binding.barOthers, (info.otherBytes + info.archiveBytes) / total)
                         setWeight(binding.barFree, info.freeBytes / total)
+
+                        // Legend Indicator Lines (Proportional to total storage)
+                        setWeight(binding.lineApps, info.appBytes / total)
+                        setWeight(binding.lineVideos, info.videoBytes / total)
+                        setWeight(binding.lineImages, info.imageBytes / total)
+                        setWeight(binding.lineDocs, info.documentBytes / total)
+                        setWeight(binding.lineAudio, info.audioBytes / total)
+                        setWeight(binding.lineOthers, (info.otherBytes + info.archiveBytes) / total)
                     }
                 }
 
@@ -163,13 +171,18 @@ class StorageForecastFragment : Fragment() {
     private fun setupStatusBar() {
         val window = requireActivity().window
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        // Set dark background color for status bar to match theme
-        @Suppress("DEPRECATION")
-        window.statusBarColor = androidx.core.content.ContextCompat.getColor(requireContext(), R.color.forecast_background)
         
-        // Ensure icons are light/white for the dark background
+        // Use theme background color for status bar
+        val typedValue = android.util.TypedValue()
+        requireContext().theme.resolveAttribute(android.R.attr.colorBackground, typedValue, true)
+        window.statusBarColor = typedValue.data
+        
+        // Determine if we are in dark mode to set icon contrast
+        val isDarkTheme = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == 
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        
         val controller = WindowInsetsControllerCompat(window, binding.root)
-        controller.isAppearanceLightStatusBars = false 
+        controller.isAppearanceLightStatusBars = !isDarkTheme
     }
 
     private fun setupInsets() {

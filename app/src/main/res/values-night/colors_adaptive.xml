@@ -28,4 +28,7 @@
     <color name="forecast_text_secondary_adaptive">#D7CCC8</color>
      <color name="forecast_card_text_adaptive">#FFFFFF</color>
     <color name="forecast_action_adaptive">#FFAB91</color>
+    
+    <!-- Legend Track Background -->
+    <color name="forecast_legend_track">#2C2C2C</color>
 </resources>
