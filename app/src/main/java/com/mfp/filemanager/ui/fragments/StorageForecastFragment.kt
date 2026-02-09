@@ -146,24 +146,7 @@ class StorageForecastFragment : Fragment() {
                     }
                 }
 
-                launch {
-                    viewModel.suggestions.collect { list ->
-                        if (list.isNotEmpty()) {
-                            binding.cardSuggestions.visibility = View.VISIBLE
-                            val suggestion = list.first()
-                            binding.textSuggestionsTitle.text = suggestion.title
-                            binding.textSuggestionsSubtitle.text = suggestion.subtitle
-                            binding.btnClearSuggestions.text = suggestion.actionText
-                            
-                            binding.btnClearSuggestions.setOnClickListener {
-                                // Simple action - in a real app this would navigate to Cleanup or trigger task
-                                com.google.android.material.snackbar.Snackbar.make(binding.root, "Feature coming soon!", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            binding.cardSuggestions.visibility = View.GONE
-                        }
-                    }
-                }
+
             }
         }
     }
@@ -194,14 +177,9 @@ class StorageForecastFragment : Fragment() {
         }
 
         // Handle Bottom Inset for the content container to stay above Bottom Nav / Taskbar
-        // We add a minimum of 80dp padding as requested to ensure no overlap
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val density = resources.displayMetrics.density
-            val minPadding = (80 * density).toInt()
-            
-            // Apply the larger of navigation bar height or our 80dp "taskbar" padding
-            binding.scrollContainer.setPadding(0, 0, 0, maxOf(navBarHeight, minPadding))
+            binding.scrollContainer.setPadding(0, 0, 0, navBarHeight)
             insets
         }
     }

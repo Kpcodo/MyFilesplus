@@ -37,21 +37,6 @@ class StorageForecastViewModel(
     private val _forecastStatus = MutableStateFlow("Initializing AI...")
     val estimatedFullDate: StateFlow<String> = _forecastStatus.asStateFlow()
 
-    data class StorageSuggestion(
-        val title: String,
-        val subtitle: String,
-        val actionText: String,
-        val iconRes: Int,
-        val type: SuggestionType
-    )
-
-    enum class SuggestionType {
-        EMPTY_TRASH, CLEAR_JUNK, LARGE_FILES
-    }
-
-    private val _suggestions = MutableStateFlow<List<StorageSuggestion>>(emptyList())
-    val suggestions: StateFlow<List<StorageSuggestion>> = _suggestions.asStateFlow()
-
     private val _projectionPoints = MutableStateFlow<List<PointF>>(emptyList())
     val projectionPoints: StateFlow<List<PointF>> = _projectionPoints.asStateFlow()
 
@@ -59,9 +44,6 @@ class StorageForecastViewModel(
         viewModelScope.launch {
             // Start all tasks in parallel
             val infoDef = async { repository.getStorageInfo() }
-            val trashSizeDef = async { repository.getTrashSize() }
-            val junkSizeDef = async { repository.getJunkSize() }
-            
             // Await basic info
             val info = infoDef.await()
             _storageInfo.value = info
@@ -90,12 +72,6 @@ class StorageForecastViewModel(
             } else {
                 trainLinearRegressionModel(history, info.totalBytes)
             }
-
-            // Await secondary stats
-            val trashSize = trashSizeDef.await()
-            val junkSize = junkSizeDef.await()
-            
-            _suggestions.value = buildSuggestionsList(info, trashSize, junkSize)
         }
     }
 
@@ -161,41 +137,7 @@ class StorageForecastViewModel(
         generateProjectionPoints(storageInfo.value, yValues, slope.toLong(), null)
     }
 
-    private fun buildSuggestionsList(info: StorageInfo, trashSize: Long, junkSize: Long): List<StorageSuggestion> {
-        val list = mutableListOf<StorageSuggestion>()
-        
-        if (trashSize > 50 * 1024 * 1024) { 
-            list.add(StorageSuggestion(
-                "Empty Trash Bin",
-                "You have files in the bin that can be permanently deleted to save space.",
-                "Clear",
-                R.drawable.ic_delete,
-                SuggestionType.EMPTY_TRASH
-            ))
-        }
 
-        if (junkSize > 100 * 1024 * 1024) { 
-            list.add(StorageSuggestion(
-                "Clear Junk Files",
-                "Remove temporary and log files taking up space.",
-                "Clean",
-                R.drawable.ic_more_horiz_24,
-                SuggestionType.CLEAR_JUNK
-            ))
-        }
-
-        if (info.freeBytes < info.totalBytes * 0.15) { 
-            list.add(StorageSuggestion(
-                "Find Large Files",
-                "Your storage is almost full. Review your largest files.",
-                "Review",
-                R.drawable.ic_archive_24,
-                SuggestionType.LARGE_FILES
-            ))
-        }
-
-        return list
-    }
 
     private fun generateProjectionPoints(info: StorageInfo, historyCounts: List<Long>, rate: Long, ignored: Any?) {
         if (info.totalBytes == 0L) return

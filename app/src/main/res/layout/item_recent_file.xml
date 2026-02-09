@@ -35,7 +35,7 @@
         android:textColor="?android:attr/textColorPrimary"
         android:textSize="15sp"
         app:layout_constraintBottom_toTopOf="@+id/text_file_size"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/checkbox"
         app:layout_constraintStart_toEndOf="@id/img_thumbnail"
         app:layout_constraintTop_toTopOf="@id/img_thumbnail"
         app:layout_constraintVertical_chainStyle="packed" />

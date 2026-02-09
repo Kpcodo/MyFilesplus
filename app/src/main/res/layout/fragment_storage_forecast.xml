@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="16dp"
-            android:paddingBottom="120dp">
+            android:paddingBottom="32dp">
 
             <!-- Storage Projection Card -->
             <com.google.android.material.card.MaterialCardView
@@ -378,58 +378,7 @@
 
             </GridLayout>
 
-            <!-- Smart Suggestions Banner -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_suggestions"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:layout_marginBottom="32dp"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="28dp"
-                app:cardElevation="0dp">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="20dp">
-
-                    <TextView
-                        android:id="@+id/text_suggestions_title"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Smart Suggestions"
-                        android:textColor="@color/forecast_text_primary_adaptive"
-                        android:textSize="20sp"
-                        android:fontFamily="sans-serif-medium"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                    <TextView
-                        android:id="@+id/text_suggestions_subtitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Review files to reclaim space"
-                        android:textColor="@color/forecast_text_secondary_adaptive"
-                        android:textSize="16sp"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/text_suggestions_title" />
-
-                    <TextView
-                        android:id="@+id/btn_clear_suggestions"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Clear"
-                        android:textColor="@color/forecast_action_adaptive"
-                        android:textSize="18sp"
-                        android:fontFamily="sans-serif-medium"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

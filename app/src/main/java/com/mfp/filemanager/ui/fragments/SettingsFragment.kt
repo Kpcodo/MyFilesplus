@@ -62,6 +62,12 @@ class SettingsFragment : Fragment() {
         
         // Refresh cache size on entry
         viewModel.calculateCacheSize(requireContext())
+        
+        // Display actual version name
+        val versionName = try {
+            requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName
+        } catch (e: Exception) { "1.4.0" } ?: "1.4.0"
+        binding.textVersion.text = "Version $versionName"
     }
 
 
@@ -95,7 +101,7 @@ class SettingsFragment : Fragment() {
         binding.layoutCheckUpdate.setOnClickListener {
             val versionName = try {
                 requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName
-            } catch (e: Exception) { "1.3.1" } ?: "1.3.1"
+            } catch (e: Exception) { "1.4.0" } ?: "1.4.0"
             
             viewModel.checkForUpdates(versionName)
             Snackbar.make(binding.root, getString(R.string.settings_checking_updates), Snackbar.LENGTH_SHORT).show()
@@ -104,7 +110,7 @@ class SettingsFragment : Fragment() {
         binding.btnChangelog.setOnClickListener {
             val versionName = try {
                 requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName
-            } catch (e: Exception) { "1.3.1" } ?: "1.3.1"
+            } catch (e: Exception) { "1.4.0" } ?: "1.4.0"
             
             viewModel.fetchChangelog(versionName)
             Snackbar.make(binding.root, "Fetching changelog...", Snackbar.LENGTH_SHORT).show()

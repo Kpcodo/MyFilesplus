@@ -419,10 +419,6 @@ class HomeFragment : Fragment() {
         binding.cardForecast.setOnClickListener {
             findNavController().navigate(R.id.nav_storage_forecast)
         }
-        
-        binding.cardStorage.setOnClickListener {
-            findNavController().navigate(R.id.nav_storage_forecast)
-        }
     }
 
     private fun setupBackHandling() {
