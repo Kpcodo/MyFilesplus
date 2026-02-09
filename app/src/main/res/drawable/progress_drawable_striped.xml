@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp"
+    android:height="24dp"
+    android:viewportWidth="400"
+    android:viewportHeight="24">
+    <!-- Diagonal Stripes Pattern -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.2"
+        android:strokeWidth="8"
+        android:pathData="M-4,28 L28,-4 M16,28 L48,-4 M36,28 L68,-4 M56,28 L88,-4 M76,28 L108,-4 M96,28 L128,-4 M116,28 L148,-4 M136,28 L168,-4 M156,28 L188,-4 M176,28 L208,-4 M196,28 L228,-4 M216,28 L248,-4 M236,28 L268,-4 M256,28 L288,-4 M276,28 L308,-4 M296,28 L328,-4 M316,28 L348,-4 M336,28 L368,-4 M356,28 L388,-4 M376,28 L408,-4 M396,28 L428,-4"/>
+</vector>

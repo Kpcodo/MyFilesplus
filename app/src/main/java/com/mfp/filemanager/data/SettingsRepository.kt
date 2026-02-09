@@ -16,25 +16,6 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
 
 class SettingsRepository(private val context: Context) {
 
-    val swipeNavigationEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[SWIPE_NAVIGATION_ENABLED] ?: false }
-
-    // Swipe to Delete - Recents
-    val trashRetentionDays: Flow<Int> = context.dataStore.data
-        .map { preferences -> preferences[TRASH_RETENTION_DAYS] ?: 30 } // Default 30 days
-
-    val animationSpeed: Flow<Float> = context.dataStore.data
-        .map { preferences -> preferences[ANIMATION_SPEED] ?: 1.0f }
-
-    val autoUpdateEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[AUTO_UPDATE_ENABLED] ?: false }
-
-    val lastUpdateCheckTime: Flow<Long> = context.dataStore.data
-        .map { preferences -> preferences[LAST_UPDATE_CHECK_TIME] ?: 0L }
-
-    val cacheSizeLimit: Flow<Int> = context.dataStore.data
-        .map { preferences -> preferences[CACHE_SIZE_LIMIT] ?: 200 } // Default 200MB
-
     companion object {
         val THEME_MODE = intPreferencesKey("theme_mode")
         val ACCENT_COLOR = intPreferencesKey("accent_color")
@@ -44,24 +25,13 @@ class SettingsRepository(private val context: Context) {
         val SEARCH_BLUR_ENABLED = booleanPreferencesKey("search_blur_enabled")
         val SWIPE_NAVIGATION_ENABLED = booleanPreferencesKey("swipe_navigation_enabled")
         val TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
-        val ANIMATION_SPEED = floatPreferencesKey("animation_speed")
         val AUTO_UPDATE_ENABLED = booleanPreferencesKey("auto_update_enabled")
         val LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
         val CACHE_SIZE_LIMIT = intPreferencesKey("cache_size_limit")
+        val LAST_KNOWN_USED_BYTES = longPreferencesKey("last_known_used_bytes")
+        val LAST_KNOWN_USED_TIME = longPreferencesKey("last_known_used_time")
+        val THUMBNAIL_SEED = longPreferencesKey("thumbnail_seed")
     }
-
-    val viewMode: Flow<Int> = context.dataStore.data
-        .map { preferences -> preferences[VIEW_MODE] ?: 0 }
-
-
-    suspend fun setTrashRetentionDays(days: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[TRASH_RETENTION_DAYS] = days
-        }
-    }
-
-
-
 
     val themeMode: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[THEME_MODE] ?: 0 }
@@ -69,17 +39,41 @@ class SettingsRepository(private val context: Context) {
     val accentColor: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[ACCENT_COLOR] ?: 0xFF6650a4.toInt() }
 
+    val iconSize: Flow<Float> = context.dataStore.data
+        .map { preferences -> preferences[ICON_SIZE] ?: 1.0f }
+
     val showHiddenFiles: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[SHOW_HIDDEN_FILES] ?: false }
 
-
+    val viewMode: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[VIEW_MODE] ?: 0 }
 
     val searchBlurEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[SEARCH_BLUR_ENABLED] ?: true }
 
-    val iconSize: Flow<Float> = context.dataStore.data
-        .map { preferences -> preferences[ICON_SIZE] ?: 1.0f }
+    val swipeNavigationEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[SWIPE_NAVIGATION_ENABLED] ?: false }
 
+    val trashRetentionDays: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[TRASH_RETENTION_DAYS] ?: 30 }
+
+    val autoUpdateEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[AUTO_UPDATE_ENABLED] ?: false }
+
+    val lastUpdateCheckTime: Flow<Long> = context.dataStore.data
+        .map { preferences -> preferences[LAST_UPDATE_CHECK_TIME] ?: 0L }
+
+    val cacheSizeLimit: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[CACHE_SIZE_LIMIT] ?: 200 }
+
+    val lastKnownUsedBytes: Flow<Long> = context.dataStore.data
+        .map { preferences -> preferences[LAST_KNOWN_USED_BYTES] ?: -1L }
+
+    val lastKnownUsedTime: Flow<Long> = context.dataStore.data
+        .map { preferences -> preferences[LAST_KNOWN_USED_TIME] ?: -1L }
+
+    val thumbnailSeed: Flow<Long> = context.dataStore.data
+        .map { preferences -> preferences[THUMBNAIL_SEED] ?: 0L }
 
     suspend fun setThemeMode(mode: Int) {
         context.dataStore.edit { preferences ->
@@ -105,14 +99,6 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
-    suspend fun setAnimationSpeed(speed: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[ANIMATION_SPEED] = speed
-        }
-    }
-
-
-    
     suspend fun setViewMode(mode: Int) {
         context.dataStore.edit { preferences ->
             preferences[VIEW_MODE] = mode
@@ -131,6 +117,12 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    suspend fun setTrashRetentionDays(days: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[TRASH_RETENTION_DAYS] = days
+        }
+    }
+
     suspend fun setAutoUpdateEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AUTO_UPDATE_ENABLED] = enabled
@@ -146,6 +138,19 @@ class SettingsRepository(private val context: Context) {
     suspend fun setCacheSizeLimit(megabytes: Int) {
         context.dataStore.edit { preferences ->
             preferences[CACHE_SIZE_LIMIT] = megabytes
+        }
+    }
+
+    suspend fun setLastKnownUsed(bytes: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_KNOWN_USED_BYTES] = bytes
+            preferences[LAST_KNOWN_USED_TIME] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun setThumbnailSeed(seed: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[THUMBNAIL_SEED] = seed
         }
     }
 }

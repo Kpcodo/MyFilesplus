@@ -12,6 +12,7 @@ fun File.toMediaItem(): MediaItem {
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(this.name)
+                .setArtworkUri(Uri.fromFile(this)) // Set artwork URI to file URI to allow thumbnail loading
                 .build()
         )
         .build()
@@ -25,6 +26,7 @@ fun com.mfp.filemanager.data.FileModel.toMediaItem(): MediaItem {
             MediaMetadata.Builder()
                 .setTitle(this.name)
                 .setArtist(this.artist)
+                .setArtworkUri(Uri.fromFile(File(this.path))) // Set artwork URI to file URI
                 .build()
         )
         .build()

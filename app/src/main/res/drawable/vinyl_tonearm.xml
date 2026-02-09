@@ -1,0 +1,52 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="240dp"
+    android:viewportWidth="120"
+    android:viewportHeight="240">
+    
+    <!-- Circular Base (The fixed socket) -->
+    <!-- Outer accent ring -->
+    <path
+        android:fillColor="#333333"
+        android:pathData="M60,30m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0" />
+    <!-- Main socket body -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M60,30m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0" />
+    <!-- Center pivot pin -->
+    <path
+        android:fillColor="#555555"
+        android:pathData="M60,30m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+
+    <!-- Long Thick Tonearm Bar (Increased length) -->
+    <path
+        android:fillColor="#CCCCCC"
+        android:pathData="M56,30 L56,200 Q56,205 60,205 Q64,205 64,200 L64,30 Q64,26 60,26 Q56,26 56,30 Z" />
+    
+    <!-- Curved Rectangular Headshell (Slimmer width) -->
+    <path
+        android:fillColor="#222222"
+        android:pathData="M52,195 
+                          H68 
+                          Q74,195 74,201 
+                          V230 
+                          Q74,236 68,236 
+                          H52 
+                          Q46,236 46,230 
+                          V201 
+                          Q46,195 52,195 Z" />
+    
+    <!-- Red Needle Detail -->
+    <path
+        android:fillColor="#FF3B30"
+        android:pathData="M58,220 
+                          H62 
+                          Q64,220 64,222 
+                          V238 
+                          Q64,240 62,240 
+                          H58 
+                          Q56,240 56,238 
+                          V222 
+                          Q56,220 58,220 Z" />
+
+</vector>

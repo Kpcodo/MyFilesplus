@@ -16,7 +16,8 @@ data class FileModel(
     val type: FileType,
     val isDirectory: Boolean,
     val itemCount: Int = 0,
-    val artist: String? = null
+    val artist: String? = null,
+    val isSelected: Boolean = false
 ) {
     val date: Date get() = Date(dateModified)
 }

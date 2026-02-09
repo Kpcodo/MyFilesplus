@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Floating Capsule Progress - Dark -->
+    <color name="capsule_surface">#26FFFFFF</color>
+    <color name="capsule_stroke">#33FFFFFF</color>
+    <color name="capsule_text_title">#E6FFFFFF</color>
+    <color name="capsule_text_subtitle">#B3FFFFFF</color>
+    <color name="capsule_progress_track">#33000000</color>
+
+    <!-- Capsule Variants (Dark Mode Adjusted) -->
+    <color name="capsule_cyan">#80D8FF</color>
+    <color name="capsule_orange_start">#FFD54F</color>
+    <color name="capsule_orange_end">#FFB74D</color>
+    <color name="capsule_emerald">#69F0AE</color>
+    <color name="capsule_red_alert">#FF5252</color>
+    <color name="capsule_red_track_bg">#33FF5252</color>
+
+    <!-- AMOLED Theme Suggestions (Use these to override if implementing AMOLED theme) -->
+    <!-- 
+    <color name="capsule_surface">#000000</color>
+    <color name="capsule_stroke">#4DFFFFFF</color>
+    -->
+</resources>

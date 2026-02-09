@@ -9,5 +9,6 @@ data class TrashedFile(
     val size: Long,
     val dateDeleted: Long,
     val type: FileType,
-    val preview: String? = null // For image/video previews
+    val preview: String? = null, // For image/video previews
+    val isSelected: Boolean = false
 )

@@ -23,4 +23,27 @@
     <string name="back_desc">Back</string>
     <string name="more_options_desc">More Options</string>
     <string name="clear_selection_desc">Clear Selection</string>
+
+    <string name="storage_usage_format">%1$s / %2$s</string>
+    <string name="storage_percent_format">%1$d%%</string>
+    <string name="storage_forecast_format">Your storage is %1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_amoled">AMOLED</string>
+    <string name="settings_theme_system">System Default</string>
+    <string name="settings_trash_retention_days">%1$d Days</string>
+    <string name="settings_checking_updates">Checking for updates...</string>
+    <string name="settings_up_to_date">App is up to date</string>
+    <string name="settings_update_available_title">New Update Available</string>
+    <string name="settings_update_available_msg">Version %1$s is available. Would you like to download it?</string>
+    <string name="settings_action_download">Download</string>
+    <string name="settings_action_later">Later</string>
+    <string name="action_play_pause">Play or Pause</string>
+    <string name="video_counter_format">%1$d / %2$d</string>
+    <string name="back">Back</string>
+    <string name="action_share">Share</string>
+    <string name="action_info">Info</string>
+    <string name="label_directory">Directory</string>
 </resources>

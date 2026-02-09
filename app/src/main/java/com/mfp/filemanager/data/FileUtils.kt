@@ -83,4 +83,18 @@ object FileUtils {
                name.endsWith(".gradle") ||
                name.endsWith(".kts")
     }
+
+    fun shareFile(context: android.content.Context, file: com.mfp.filemanager.data.FileModel) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", File(file.path))
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                setType(file.mimeType ?: "*/*")
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "Share file"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }

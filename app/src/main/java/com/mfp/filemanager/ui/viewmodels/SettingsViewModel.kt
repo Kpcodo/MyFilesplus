@@ -3,6 +3,7 @@ package com.mfp.filemanager.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import coil.annotation.ExperimentalCoilApi
 import com.mfp.filemanager.data.GitHubCommit
 import com.mfp.filemanager.data.GitHubRelease
 import com.mfp.filemanager.data.SettingsRepository
@@ -38,10 +39,11 @@ data class SettingsState(
     val isBlurEnabled: Boolean = true,
     val isSwipeNavigationEnabled: Boolean = false,
     val trashRetentionDays: Int = 30,
-    val animationSpeed: Float = 1.0f,
+
     val autoUpdateEnabled: Boolean = false,
     val cacheSizeLimit: Int = 200,
-    val currentCacheSize: Long = 0L
+    val currentCacheSize: Long = 0L,
+    val thumbnailSeed: Long = 0L
 )
 
 
@@ -72,12 +74,6 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
 
     fun checkForUpdates(currentVersion: String, isAutoCheck: Boolean = false) {
         viewModelScope.launch {
-            if (isAutoCheck) {
-                 // Logic to skip if checked recently is handled before calling this, 
-                 // BUT we should double check or just proceed. 
-                 // However, we want to update the LastUpdateCheckTime ONLY on success
-            }
-            
             _updateState.value = UpdateCheckState.Checking
             try {
                 // Using GitHub Public API - Rate limited to 60/hr/IP
@@ -192,6 +188,39 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         _updateState.value = UpdateCheckState.Idle
     }
 
+    // Changelog Logic
+    private val _changelogState = MutableStateFlow<ChangelogState>(ChangelogState.Idle)
+    val changelogState: StateFlow<ChangelogState> = _changelogState.asStateFlow()
+
+    fun fetchChangelog(currentVersion: String) {
+        viewModelScope.launch {
+            _changelogState.value = ChangelogState.Loading
+            try {
+                // Remove 'v' prefix if it exists in currentVersion, then re-add it for GitHub Tag format standard (usually vX.Y.Z)
+                val versionTag = "v${currentVersion.removePrefix("v")}"
+                val url = "https://api.github.com/repos/$githubOwner/$githubRepo/releases/tags/$versionTag"
+                
+                try {
+                    val release: GitHubRelease = httpClient.get(url).body()
+                    _changelogState.value = ChangelogState.Success(release)
+                } catch (e: Exception) {
+                    // Fallback: If tag not found (maybe no 'v' prefix in actual tag?), try without 'v'
+                    val rawUrl = "https://api.github.com/repos/$githubOwner/$githubRepo/releases/tags/${currentVersion.removePrefix("v")}"
+                    val release: GitHubRelease = httpClient.get(rawUrl).body()
+                    _changelogState.value = ChangelogState.Success(release)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _changelogState.value = ChangelogState.Error("Could not fetch changelog for version $currentVersion: ${e.message}")
+            }
+        }
+    }
+
+    fun resetChangelogState() {
+        _changelogState.value = ChangelogState.Idle
+    }
+
+
     val settingsState: StateFlow<SettingsState> = combine(
         repository.themeMode,
         repository.accentColor,
@@ -207,24 +236,23 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         settings.copy(isSwipeNavigationEnabled = swipe)
     }.combine(repository.trashRetentionDays) { settings, days ->
         settings.copy(trashRetentionDays = days)
-    }.combine(repository.animationSpeed) { settings, speed ->
-        settings.copy(animationSpeed = speed)
+
     }.combine(repository.autoUpdateEnabled) { settings, auto ->
         settings.copy(autoUpdateEnabled = auto)
     }.combine(repository.cacheSizeLimit) { settings, limit ->
         settings.copy(cacheSizeLimit = limit)
     }.combine(_currentCacheSize) { settings, size ->
         settings.copy(currentCacheSize = size)
+    }.combine(repository.thumbnailSeed) { settings, seed ->
+        settings.copy(thumbnailSeed = seed)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SettingsState()
     )
 
-    fun setThemeMode(mode: Int) {
-        viewModelScope.launch {
-            repository.setThemeMode(mode)
-        }
+    suspend fun setThemeMode(mode: Int) {
+        repository.setThemeMode(mode)
     }
 
     fun setAccentColor(color: Int) {
@@ -257,11 +285,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         }
     }
 
-    fun setAnimationSpeed(speed: Float) {
-        viewModelScope.launch {
-            repository.setAnimationSpeed(speed)
-        }
-    }
+
 
     fun toggleBlurEnabled(enabled: Boolean) {
         viewModelScope.launch {
@@ -295,30 +319,75 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
 
     fun calculateCacheSize(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
-            val cacheDir = context.cacheDir
             var size = 0L
-            if (cacheDir.exists()) {
-                cacheDir.walkTopDown().forEach { file ->
-                   if (file.isFile) size += file.length()
-                }
+            
+            // Internal Cache
+            val cacheDir = context.cacheDir
+            if (cacheDir != null && cacheDir.exists()) {
+                size += getDirSize(cacheDir)
             }
+            
+            // External Cache
+            val externalCacheDir = context.externalCacheDir
+            if (externalCacheDir != null && externalCacheDir.exists()) {
+                size += getDirSize(externalCacheDir)
+            }
+
+            // Code Cache (ART compiled code) - technically cache
+            val codeCacheDir = context.codeCacheDir
+            if (codeCacheDir != null && codeCacheDir.exists()) {
+                size += getDirSize(codeCacheDir)
+            }
+            
             _currentCacheSize.value = size
         }
     }
+    
+    private fun getDirSize(dir: File): Long {
+        var size = 0L
+        dir.walkTopDown().forEach { file ->
+            if (file.isFile) size += file.length()
+        }
+        return size
+    }
 
+    @OptIn(ExperimentalCoilApi::class)
     fun clearThumbnailsCache(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Clear Coil Cache
                 val imageLoader = coil.Coil.imageLoader(context)
                 imageLoader.memoryCache?.clear()
                 imageLoader.diskCache?.clear()
                 
+                // Rotate Thumbnail Seed for Random Video Frames
+                repository.setThumbnailSeed(System.currentTimeMillis())
+                
+                // Clear Internal Cache Contents
                 context.cacheDir?.listFiles()?.forEach { 
-                    it.deleteRecursively()
+                    it.deleteRecursively() 
                 }
+                
+                // Clear External Cache Contents
+                context.externalCacheDir?.listFiles()?.forEach { 
+                    it.deleteRecursively() 
+                }
+
+                // Clear Code Cache
+                 context.codeCacheDir?.listFiles()?.forEach { 
+                    it.deleteRecursively() 
+                }
+                
+                // Clear In-Memory App Cache
+                com.mfp.filemanager.data.cache.AppCache.clear()
+                
+                // Signal UI to Refresh
+                com.mfp.filemanager.data.cache.AppCache.triggerCacheClearEvent()
+
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+            // Recalculate (should be near 0)
             calculateCacheSize(context)
         }
     }

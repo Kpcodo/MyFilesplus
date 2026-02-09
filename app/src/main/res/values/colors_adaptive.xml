@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Adaptive Glass Taskbar Colors (Light Mode) -->
+    
+    <!-- Background: Frosted White -->
+    <color name="glass_taskbar_background">#D9FFFFFF</color> 
+    <!-- Border: Subtle Dark Ring -->
+    <color name="glass_taskbar_stroke">#1F000000</color>
+    
+    <!-- Icons: Dark for contrast on white glass -->
+    <color name="nav_icon_active">#FF1F1F1F</color>
+    <color name="nav_icon_inactive">#991F1F1F</color>
+    
+    <!-- Glass Gradient (Light Mode - Glossy) -->
+    <color name="glass_gradient_start">#1AFFFFFF</color>
+    <color name="glass_gradient_center">#4DFFFFFF</color>
+    <color name="glass_gradient_end">#1AFFFFFF</color>
+
+    <!-- Dashboard Adaptive Colors (Light Mode) -->
+    <!-- Used for huge percentages and primary highlights -->
+    <color name="dashboard_highlight">#202124</color> 
+    <!-- Used for labels like "STORAGE USAGE" -->
+    <color name="dashboard_secondary">#5F6368</color>
+    <!-- Used for "View All" links -->
+    <color name="dashboard_accent">#1976D2</color>
+    <!-- Used for text inside storage option cards (Internal/Other) -->
+    <color name="dashboard_card_text">#202124</color>
+    <!-- Used for icons inside storage options -->
+    <color name="dashboard_card_icon_tint">#1976D2</color>
+
+    <!-- Storage Forecast Adaptive Colors (Light Mode) -->
+     <!-- Primary text for forecast titles/predictions -->
+    <color name="forecast_text_primary_adaptive">#202124</color>
+    <!-- Secondary text (subtitles, dates) -->
+    <color name="forecast_text_secondary_adaptive">#5F6368</color>
+    <!-- Card Text color (inside colored category cards) - usually white is fine, but lets be safe -->
+    <color name="forecast_card_text_adaptive">#FFFFFF</color> 
+    <!-- Suggestion Action Color (Clear) -->
+    <color name="forecast_action_adaptive">#D32F2F</color>
+
+</resources>

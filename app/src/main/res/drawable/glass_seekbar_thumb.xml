@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer Glow / Soft Edge -->
+    <item>
+        <shape android:shape="oval">
+            <size android:width="14dp" android:height="14dp"/>
+            <solid android:color="#20FFFFFF"/>
+        </shape>
+    </item>
+    
+    <!-- Main Orb Body -->
+    <item android:top="0dp" android:bottom="0dp" android:left="0dp" android:right="0dp">
+        <shape android:shape="oval">
+            <size android:width="14dp" android:height="14dp"/>
+            <solid android:color="#E6FFFFFF"/> <!-- Semi-translucent white -->
+            <!-- Subtle gradient for 'orb' look -->
+            <gradient
+                android:type="radial"
+                android:gradientRadius="7dp"
+                android:centerX="0.3"
+                android:centerY="0.3"
+                android:startColor="#FFFFFFFF"
+                android:endColor="#D9E0E0E0" />
+            <stroke android:width="0.5dp" android:color="#40FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

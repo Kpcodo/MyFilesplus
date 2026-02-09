@@ -57,6 +57,18 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FileManager" />
+
+        <activity
+            android:name=".ui.activities.MediaViewerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:theme="@style/Theme.FileManager" />
+
         <service
             android:name=".service.AudioPlayerService"
             android:foregroundServiceType="mediaPlayback"

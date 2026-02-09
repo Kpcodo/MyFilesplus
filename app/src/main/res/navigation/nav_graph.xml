@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_main_pager">
+
+    <fragment
+        android:id="@+id/nav_main_pager"
+        android:name="com.mfp.filemanager.ui.fragments.MainPagerFragment"
+        android:label="File Manager"
+        tools:layout="@layout/fragment_main_pager" />
+
+    <fragment
+        android:id="@+id/nav_file_browser"
+        android:name="com.mfp.filemanager.ui.fragments.FileBrowserFragment"
+        android:label="File Browser"
+        tools:layout="@layout/fragment_file_browser">
+        <argument
+            android:name="path"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_recent_files"
+        android:name="com.mfp.filemanager.ui.fragments.RecentFilesFragment"
+        android:label="Recent Files"
+        tools:layout="@layout/fragment_file_browser" />
+
+    <fragment
+        android:id="@+id/nav_player"
+        android:name="com.mfp.filemanager.ui.fragments.PlayerFragment"
+        android:label="Player"
+        tools:layout="@layout/fragment_player">
+        <action
+            android:id="@+id/action_global_nav_player"
+            app:destination="@id/nav_player"
+            app:enterAnim="@anim/pop_enter"
+            app:exitAnim="@anim/pop_exit"
+            app:popEnterAnim="@anim/pop_pop_enter"
+            app:popExitAnim="@anim/pop_pop_exit" />
+    </fragment>
+
+
+
+    <fragment
+        android:id="@+id/nav_storage_forecast"
+        android:name="com.mfp.filemanager.ui.fragments.StorageForecastFragment"
+        android:label="Storage Forecast"
+        tools:layout="@layout/fragment_storage_forecast" />
+
+
+</navigation>

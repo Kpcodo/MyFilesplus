@@ -7,4 +7,52 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Premium Colors from Compose Theme -->
+    <color name="deep_blue">#1A237E</color>
+    <color name="ocean_blue">#0D47A1</color>
+    <color name="soft_teal">#009688</color>
+    <color name="dark_background">#121212</color>
+    <color name="surface_dark">#1E1E1E</color>
+    <color name="text_white">#EEEEEE</color>
+    
+    <color name="default_accent">#6650a4</color>
+
+    <!-- Storage Forecast Theme (Brown) -->
+    <color name="forecast_background">#0E0906</color>
+    <color name="forecast_card_bg">#5C3D22</color>
+    <color name="forecast_text_primary">#F5E0D6</color>
+    <color name="forecast_text_secondary">#D7CCC8</color>
+    <color name="forecast_chart_line">#42A5F5</color>
+    <color name="forecast_chart_gradient_top">#4042A5F5</color>
+    <color name="forecast_chart_gradient_bottom">#0042A5F5</color>
+
+    <!-- Storage Forecast Categories -->
+    <color name="category_apps">#4CAF50</color>
+    <color name="category_videos">#2196F3</color>
+    <color name="category_images">#9C27B0</color>
+    <color name="category_docs">#FFC107</color>
+    <color name="category_audio">#009688</color>
+    <color name="category_others">#FF8A80</color>
+    <color name="category_free">#FFFFFF</color>
+
+    <!-- Glass Morphism -->
+    <color name="glass_white_bg">#26FFFFFF</color>
+    <color name="glass_white_stroke">#4DFFFFFF</color>
+    <color name="glass_dark_bg">#33000000</color>
+    <color name="glass_dark_stroke">#4DFFFFFF</color>
+    <!-- Floating Capsule Progress - Light -->
+    <color name="capsule_surface">#CCFFFFFF</color>
+    <color name="capsule_stroke">#33000000</color> <!-- Subtle Grey -->
+    <color name="capsule_text_title">#CC1F1F1F</color> <!-- Dark Text -->
+    <color name="capsule_text_subtitle">#991F1F1F</color>
+    <color name="capsule_progress_track">#1A000000</color> <!-- Light track -->
+
+    <!-- Capsule Variants -->
+    <color name="capsule_cyan">#00E5FF</color>
+    <color name="capsule_orange_start">#FFC107</color>
+    <color name="capsule_orange_end">#FF9800</color>
+    <color name="capsule_emerald">#00C853</color>
+    <color name="capsule_red_alert">#FF5252</color>
+    <color name="capsule_red_track_bg">#33FF5252</color>
 </resources>

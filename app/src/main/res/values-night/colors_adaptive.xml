@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Adaptive Glass Taskbar Colors (Dark Mode) -->
+    
+    <!-- Background: Frosted Dark Grey/Black -->
+    <color name="glass_taskbar_background">#CC000000</color>
+    <!-- Border: Subtle White Ring -->
+    <color name="glass_taskbar_stroke">#33FFFFFF</color>
+    
+    <!-- Icons: White for contrast on dark glass -->
+    <color name="nav_icon_active">#FFFFFFFF</color>
+    <color name="nav_icon_inactive">#99FFFFFF</color>
+    
+    <!-- Glass Gradient (Dark Mode - Subtle Shine) -->
+    <color name="glass_gradient_start">#05FFFFFF</color>
+    <color name="glass_gradient_center">#1AFFFFFF</color>
+    <color name="glass_gradient_end">#05FFFFFF</color>
+
+    <!-- Dashboard Adaptive Colors (Dark Mode - Maintains the Brown/Beige Aesthetic) -->
+    <color name="dashboard_highlight">#F5E0D6</color>
+    <color name="dashboard_secondary">#B0B0B0</color>
+    <color name="dashboard_accent">#D7CCC8</color>
+    <color name="dashboard_card_text">#FFFFFF</color>
+    <color name="dashboard_card_icon_tint">#F5E0D6</color>
+
+     <!-- Storage Forecast Adaptive Colors (Dark Mode) -->
+    <color name="forecast_text_primary_adaptive">#F5E0D6</color>
+    <color name="forecast_text_secondary_adaptive">#D7CCC8</color>
+     <color name="forecast_card_text_adaptive">#FFFFFF</color>
+    <color name="forecast_action_adaptive">#FFAB91</color>
+</resources>

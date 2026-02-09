@@ -1,125 +1,30 @@
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.1.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
-> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
-> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:dataBindingMergeDependencyArtifactsDebug UP-TO-DATE
 > Task :app:generateDebugResValues UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths UP-TO-DATE
 > Task :app:generateDebugResources UP-TO-DATE
 > Task :app:mergeDebugResources UP-TO-DATE
 > Task :app:packageDebugResources UP-TO-DATE
 > Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesDebug UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
 > Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
 > Task :app:extractDeepLinksDebug UP-TO-DATE
 > Task :app:processDebugMainManifest UP-TO-DATE
 > Task :app:processDebugManifest UP-TO-DATE
 > Task :app:processDebugManifestForPackage UP-TO-DATE
 > Task :app:processDebugResources UP-TO-DATE
-> Task :app:javaPreCompileDebug UP-TO-DATE
-> Task :app:mergeDebugShaders UP-TO-DATE
-> Task :app:compileDebugShaders NO-SOURCE
-> Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:mergeDebugAssets UP-TO-DATE
-> Task :app:compressDebugAssets UP-TO-DATE
-> Task :app:checkDebugDuplicateClasses UP-TO-DATE
-> Task :app:desugarDebugFileDependencies UP-TO-DATE
-> Task :app:mergeExtDexDebug UP-TO-DATE
-> Task :app:mergeLibDexDebug UP-TO-DATE
-> Task :app:mergeDebugJniLibFolders UP-TO-DATE
-> Task :app:mergeDebugNativeLibs UP-TO-DATE
-> Task :app:stripDebugDebugSymbols UP-TO-DATE
-> Task :app:validateSigningDebug UP-TO-DATE
-> Task :app:writeDebugAppMetadata UP-TO-DATE
-> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
-> Task :app:compileDebugKotlin
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:368:47 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:369:49 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:370:48 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:371:48 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:378:17 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:378:79 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:378:99 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:382:17 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:382:73 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:382:93 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:432:33 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:432:33 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:433:32 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:433:32 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:434:36 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:434:36 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:435:35 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:435:35 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:463:17 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:463:41 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:463:61 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:467:18 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:467:40 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:467:60 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:498:33 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:498:33 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:499:32 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:499:32 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:500:36 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:500:36 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:501:35 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:501:35 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:517:33 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:517:33 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:518:32 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:518:32 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:519:36 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:519:36 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:520:35 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:520:35 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:570:33 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:570:55 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:571:32 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:571:54 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:572:36 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:572:58 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:573:35 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:573:57 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:587:33 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:587:33 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:588:32 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:588:32 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:589:36 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:589:36 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:590:35 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:590:35 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:602:33 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:602:33 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:603:32 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:603:32 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:604:36 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:604:36 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:605:35 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:605:35 Type mismatch: inferred type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:615:33 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.EnterTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:615:55 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:616:32 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:616:54 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:617:59 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:618:35 Argument type mismatch: actual type is 'kotlin.String', but 'androidx.compose.animation.ExitTransition?' was expected.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/MainActivity.kt:618:57 @Composable invocations can only happen from the context of a @Composable function
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:83:13 Unresolved reference 'slideIntoContainer'.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:83:49 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:87:13 Unresolved reference 'slideOutOfContainer'.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:87:50 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:90:43 Unresolved reference 'slideIntoContainer'.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:92:13 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:96:46 Unresolved reference 'slideOutOfContainer'.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:98:13 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/animations/AppMotion.kt:102:86 This is an experimental animation API.
-e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/screens/FullPlayerScreen.kt:263:41 Function invocation 'mechanicalSpring()' expected.
 
 > Task :app:compileDebugKotlin FAILED
+e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/fragments/SettingsFragment.kt:17:40 Conflicting import: imported name 'FragmentSettingsBinding' is ambiguous.
+e: file:///G:/DEVS/Android%20projects/FileManagerApp/app/src/main/java/com/mfp/filemanager/ui/fragments/SettingsFragment.kt:21:40 Conflicting import: imported name 'FragmentSettingsBinding' is ambiguous.
+
 
 [Incubating] Problems report is available at: file:///G:/DEVS/Android%20projects/FileManagerApp/build/reports/problems/problems-report.html
-
 FAILURE: Build failed with an exception.
 
 * What went wrong:
@@ -138,6 +43,6 @@ Deprecated Gradle features were used in this build, making it incompatible with 
 You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
 
 For more on this, please refer to https://docs.gradle.org/9.1.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+16 actionable tasks: 1 executed, 15 up-to-date
 
-BUILD FAILED in 49s
-28 actionable tasks: 1 executed, 27 up-to-date
+BUILD FAILED in 25s

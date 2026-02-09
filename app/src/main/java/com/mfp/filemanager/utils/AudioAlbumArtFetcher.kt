@@ -31,6 +31,27 @@ class AudioAlbumArtFetcher(
                 return null
             }
 
+            // 1. Try to fetch from .thumbnails folder first
+            val parent = file.parentFile
+            if (parent != null) {
+                val thumbDir = File(parent, ".thumbnails")
+                if (thumbDir.exists() && thumbDir.isDirectory) {
+                    val name = file.nameWithoutExtension
+                    val thumbFile = thumbDir.listFiles()?.find { 
+                        it.nameWithoutExtension.equals(name, ignoreCase = true) && 
+                        (it.extension.lowercase() == "jpg" || it.extension.lowercase() == "png" || it.extension.lowercase() == "jpeg")
+                    }
+                    if (thumbFile != null && thumbFile.exists()) {
+                        return SourceResult(
+                            source = ImageSource(thumbFile.source().buffer(), options.context),
+                            mimeType = "image/${thumbFile.extension}",
+                            dataSource = DataSource.DISK
+                        )
+                    }
+                }
+            }
+
+            // 2. Fallback to embedded picture
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(file.path)
             val art = retriever.embeddedPicture
@@ -44,7 +65,7 @@ class AudioAlbumArtFetcher(
                     dataSource = DataSource.DISK
                 )
             } else {
-                Log.d("AudioAlbumArtFetcher", "No embedded picture found in: ${file.path}")
+                Log.d("AudioAlbumArtFetcher", "No embedded picture or .thumbnail found in: ${file.path}")
                 null
             }
         } catch (e: Exception) {

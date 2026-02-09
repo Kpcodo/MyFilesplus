@@ -27,6 +27,17 @@ import android.app.usage.StorageStatsManager
 import android.os.Process
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import java.io.FileReader
+import java.io.FileWriter
+
+data class StorageSnapshot(
+    val timestamp: Long,
+    val totalBytes: Long,
+    val usedBytes: Long
+)
 
 data class StorageVolumeInfo(
     val file: File,
@@ -70,24 +81,29 @@ class FileRepository(private val context: Context) {
             val freeBytes = Environment.getExternalStorageDirectory().freeSpace
 
             // Calculate usage in the last 30 days
-            val recentUsageBytes = getAverageDailyUsageBytes() * 30
-
-            if (recentUsageBytes <= 0) return@withContext "Stable"
+            var recentUsageBytes = getAverageDailyUsageBytes() * 30
             
+            // Fallback for fresh installs or no usage data: Assume 50MB/day usage
+            if (recentUsageBytes <= 0) {
+                 recentUsageBytes = 50L * 1024 * 1024 * 30
+            }
+
             val dailyRate = recentUsageBytes / 30f
-            if (dailyRate <= 0) return@withContext "Stable"
+            
+            // Absolute safety fallback
+            if (dailyRate <= 0) return@withContext "Analysing..."
 
             val daysUntilFull = (freeBytes / dailyRate).toLong()
-
-            return@withContext when {
-                daysUntilFull < 1 -> "< 1 day"
-                daysUntilFull < 30 -> "Full in ~$daysUntilFull days"
-                daysUntilFull < 365 -> "Full in ~${daysUntilFull / 30} mo"
-                else -> "> 1 yr left"
-            }
+            
+            val calendar = java.util.Calendar.getInstance()
+            calendar.add(java.util.Calendar.DAY_OF_YEAR, daysUntilFull.toInt())
+            
+            val dateFormat = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault())
+            
+            return@withContext "Full by ${dateFormat.format(calendar.time)}"
         } catch (e: Exception) {
             e.printStackTrace()
-            return@withContext "Unknown"
+            return@withContext "Analysing..."
         }
     }
     
@@ -98,6 +114,30 @@ class FileRepository(private val context: Context) {
     suspend fun deleteFilesBatch(paths: List<String>, onProgress: ((Float) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
         val files = paths.map { File(it) }
         trashManager.moveToTrashBatch(files, onProgress)
+    }
+
+    suspend fun copyFiles(sourcePaths: List<String>, destPath: String, onProgress: ((Float) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
+        var successCount = 0
+        val total = sourcePaths.size
+        sourcePaths.forEachIndexed { index, path ->
+            if (copyFile(path, destPath)) {
+                successCount++
+            }
+            onProgress?.invoke((index + 1).toFloat() / total)
+        }
+        successCount == total
+    }
+
+    suspend fun moveFiles(sourcePaths: List<String>, destPath: String, onProgress: ((Float) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
+        var successCount = 0
+        val total = sourcePaths.size
+        sourcePaths.forEachIndexed { index, path ->
+            if (moveFile(path, destPath)) {
+                successCount++
+            }
+            onProgress?.invoke((index + 1).toFloat() / total)
+        }
+        successCount == total
     }
 
     suspend fun getTrashedFiles(): List<TrashedFile> = trashManager.getTrashedFiles()
@@ -166,10 +206,22 @@ class FileRepository(private val context: Context) {
     suspend fun getJunkSize(): Long = withContext(Dispatchers.IO) {
         var size: Long = 0
         try {
-            val root = Environment.getExternalStorageDirectory()
-            val junkFiles = mutableListOf<File>()
-            scanForJunkFiles(root, junkFiles, 0)
-            size = junkFiles.sumOf { it.length() }
+            val extensions = listOf("%.tmp", "%.temp", "%.log", "%thumbs.db", "%.ds_store")
+            val selection = extensions.joinToString(" OR ") { "${MediaStore.Files.FileColumns.DATA} LIKE ?" }
+            val selectionArgs = extensions.toTypedArray()
+            
+            val projection = arrayOf("SUM(${MediaStore.Files.FileColumns.SIZE})")
+            val queryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            } else {
+                MediaStore.Files.getContentUri("external")
+            }
+
+            context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    size = cursor.getLong(0)
+                }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -295,7 +347,7 @@ class FileRepository(private val context: Context) {
         files
     }
 
-    suspend fun getRecentFiles(limit: Int = 20): List<FileModel> = withContext(Dispatchers.IO) {
+    suspend fun getRecentFiles(limit: Int = 20, showHidden: Boolean = false): List<FileModel> = withContext(Dispatchers.IO) {
         val files = mutableListOf<FileModel>()
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
@@ -341,7 +393,8 @@ class FileRepository(private val context: Context) {
         }
         
         // Filter out very small/empty system files if needed, but show OTHERS/UNKNOWN if they exist
-        return@withContext files.filter { it.size > 0 && !it.name.startsWith(".") && !it.isDirectory }.take(limit)
+        // Respect showHidden parameter
+        return@withContext files.filter { it.size > 0 && (showHidden || !it.name.startsWith(".")) && !it.isDirectory }.take(limit)
     }
 
     suspend fun searchFiles(
@@ -473,7 +526,8 @@ class FileRepository(private val context: Context) {
             val mimeType = cursor.getString(mimeColumn) ?: "*/*"
             val artist = if (artistColumn != -1) cursor.getString(artistColumn) else null
             
-            val isDir = if (path.isNotEmpty()) java.io.File(path).isDirectory else false
+            val isDir = (mimeType == "resource/folder" || mimeType == "vnd.android.cursor.dir/file") ||
+                        (if (path.isNotEmpty()) java.io.File(path).isDirectory else false)
             files.add(FileModel(id, name, path, size, date, mimeType, determineFileType(mimeType, name), isDir, 0, artist))
         }
         return files
@@ -563,10 +617,14 @@ class FileRepository(private val context: Context) {
             val freeBytes = availableBlocks * blockSize
             val usedBytes = totalBytes - freeBytes
 
+            // Parallelize scanning
+            val appBytesDeferred = async { getAppSize() }
+            val docBytesDeferred = async { getDocumentSize() }
+            val archiveBytesDeferred = async { getArchiveSize() }
+            
             var imageBytes = 0L
             var videoBytes = 0L
             var audioBytes = 0L
-            var appBytes = 0L
             
             // Try optimized query using StorageStatsManager first (API 26+)
             var statsSuccess = false
@@ -577,7 +635,6 @@ class FileRepository(private val context: Context) {
                     imageBytes = stats.imageBytes
                     videoBytes = stats.videoBytes
                     audioBytes = stats.audioBytes
-                    appBytes = getAppSize() // Still need this for total installed app size including data
                     statsSuccess = true
                 } catch (e: Exception) {
                     android.util.Log.e("FileRepository", "queryExternalStatsForUser failed", e)
@@ -585,22 +642,27 @@ class FileRepository(private val context: Context) {
             }
             
             if (!statsSuccess) {
-                imageBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE)
-                videoBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
-                audioBytes = getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO)
-                appBytes = getAppSize()
+                val imgDef = async { getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE) }
+                val vidDef = async { getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO) }
+                val audDef = async { getCategorySize(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO) }
+                imageBytes = imgDef.await()
+                videoBytes = vidDef.await()
+                audioBytes = audDef.await()
             }
 
-            val documentBytes = getDocumentSize()
-            val archiveBytes = getArchiveSize()
+            val appBytes = appBytesDeferred.await()
+            val documentBytes = docBytesDeferred.await()
+            val archiveBytes = archiveBytesDeferred.await()
             
             val mediaSum = imageBytes + videoBytes + audioBytes + documentBytes + appBytes + archiveBytes
             val otherBytes = if (usedBytes > mediaSum) usedBytes - mediaSum else 0L
 
+            // Log storage snapshot for AI analysis
+            com.mfp.filemanager.utils.StorageAnalysisLogger.logSnapshot(context, totalBytes, freeBytes)
+
             StorageInfo(totalBytes, freeBytes, usedBytes, imageBytes, videoBytes, audioBytes, documentBytes, appBytes, archiveBytes, otherBytes)
         } catch (e: Exception) {
             e.printStackTrace()
-            // Return empty/zero info on error
             StorageInfo(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         }
     }
@@ -668,7 +730,7 @@ class FileRepository(private val context: Context) {
 
     private fun getArchiveSize(): Long {
         var size: Long = 0
-        val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
+        val projection = arrayOf("SUM(${MediaStore.Files.FileColumns.SIZE})")
         val (selection, selectionArgs) = getSelectionForCategory(FileType.ARCHIVE)
         
         val queryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -679,11 +741,8 @@ class FileRepository(private val context: Context) {
 
         try {
             context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                val sizeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.SIZE)
-                if (sizeIndex != -1) {
-                    while (cursor.moveToNext()) {
-                        size += cursor.getLong(sizeIndex)
-                    }
+                if (cursor.moveToFirst()) {
+                    size = cursor.getLong(0)
                 }
             }
         } catch (e: Exception) {
@@ -694,7 +753,7 @@ class FileRepository(private val context: Context) {
 
     private fun getDocumentSize(): Long {
         var size: Long = 0
-        val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
+        val projection = arrayOf("SUM(${MediaStore.Files.FileColumns.SIZE})")
         
         // Expanded Document Types
         val mimeTypes = arrayOf(
@@ -716,13 +775,9 @@ class FileRepository(private val context: Context) {
         }
 
         try {
-             // Pass mimeTypes as args for the ? placeholders
             context.contentResolver.query(queryUri, projection, selection, mimeTypes, null)?.use { cursor ->
-                val sizeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.SIZE)
-                if (sizeIndex != -1) {
-                    while (cursor.moveToNext()) {
-                        size += cursor.getLong(sizeIndex)
-                    }
+                if (cursor.moveToFirst()) {
+                    size = cursor.getLong(0)
                 }
             }
         } catch (e: Exception) {
@@ -919,21 +974,38 @@ class FileRepository(private val context: Context) {
             if (sourceFile.renameTo(destFile)) {
                 scanFile(sourcePath)
                 scanFile(destFile.absolutePath)
-                onProgress?.invoke(sourceFile.length(), sourceFile.length())
+                onProgress?.invoke(destFile.length(), destFile.length())
                 return@withContext true
             }
 
-            // Fallback to Copy-Delete
-            val copied = copyFile(sourcePath, destPath, onProgress)
+            // Fallback to Copy-Delete (Cross-partition or failed rename)
+            val copied = if (sourceFile.isDirectory) {
+                 copyDirectory(sourceFile, destFile, onProgress)
+            } else {
+                 copyFile(sourcePath, destFile.absolutePath, onProgress) // Use absolute path string for destination file
+            }
+
             if (copied) {
-                // Determine the actual path of the copied file (in case of auto-rename)
-                // We need to be careful here because copyFile handles auto-rename internally.
-                // However, destFile constructed above should match what copyFile used if logic is identical.
-                val success = sourceFile.deleteRecursively()
-                if (success) {
+                // Delete Source
+                // We use deleteRecursively to handle directories
+                val deleted = sourceFile.deleteRecursively()
+                
+                if (deleted) {
                     scanFile(sourcePath)
+                    // Explicitly scan parent dir of source to force update?
+                    scanFile(sourceFile.parentFile?.absolutePath ?: "")
+                } else {
+                    android.util.Log.e("FileRepository", "moveFile: Failed to delete source after copy: $sourcePath")
+                    // Try alternate delete?
+                    if (sourceFile.exists()) {
+                        // Attempt context delete if Java API fails (unlikely with MANAGE_EXTERNAL_STORAGE but possible)
+                        // For now we treat it as failure to Move completely
+                        // But we already copied... users might prefer knowing it exists in both than losing data.
+                        // We return false to indicate 'Move' failed (it became a Copy).
+                        return@withContext false 
+                    }
                 }
-                return@withContext success
+                return@withContext true
             }
             return@withContext false
 
@@ -943,9 +1015,72 @@ class FileRepository(private val context: Context) {
         }
     }
 
+    suspend fun getStorageUsageHistory(): List<Long> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis() / 1000
+        val history = mutableListOf<Long>()
+        
+        val totalUsageNow = Environment.getExternalStorageDirectory().totalSpace - Environment.getExternalStorageDirectory().freeSpace
+        
+        val queryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Files.getContentUri("external")
+        }
+
+        val intervals = listOf(30L, 22L, 15L, 7L)
+        val bucketSums = mutableListOf<Long>()
+
+        for (days in intervals) {
+            val threshold = now - (days * 24 * 60 * 60)
+            val projection = arrayOf("SUM(${MediaStore.Files.FileColumns.SIZE})")
+            val selection = "${MediaStore.Files.FileColumns.DATE_MODIFIED} > ?"
+            val selectionArgs = arrayOf(threshold.toString())
+            
+            var sum = 0L
+            try {
+                context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        sum = cursor.getLong(0)
+                    }
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+            bucketSums.add(sum)
+        }
+
+        // history order: Past to Now
+        // intervals: 30, 22, 15, 7
+        // bucketSums matches intervals
+        for (added in bucketSums) {
+            val pastEstimate = (totalUsageNow - added).coerceAtLeast(0L)
+            history.add(pastEstimate)
+        }
+        history.add(totalUsageNow)
+        
+        history
+    }
+
     suspend fun getAverageDailyUsageBytes(): Long = withContext(Dispatchers.IO) {
+        // Deprecated: This old method used file modification dates but ignored deletions.
+        // We now prefer using the snapshot history if available.
+        val history = getStorageHistory()
+        if (history.size >= 2) {
+            val first = history.first()
+            val last = history.last()
+            val durationDays = (last.timestamp - first.timestamp) / (1000f * 60 * 60 * 24)
+            if (durationDays >= 1.0) {
+                 val usedDiff = last.usedBytes - first.usedBytes
+                 // If usedDiff is negative, it means they deleted stuff. 
+                 // We return 0 or negative here? The purely mathematical average is better returned as is, 
+                 // but the UI might expect a positive "usage rate".
+                 // For legacy compatibility, we'll return a basic projection if positive, else 0.
+                 return@withContext if (usedDiff > 0) (usedDiff / durationDays).toLong() else 0L
+            }
+        }
+        
+        // Fallback to old inaccurate logic regarding "newly modified files" 
+        // just to have *something* if history is empty.
         val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
-        val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
+        val projection = arrayOf("SUM(${MediaStore.Files.FileColumns.SIZE})")
         val selection = "${MediaStore.Files.FileColumns.DATE_MODIFIED} > ?"
         val selectionArgs = arrayOf((thirtyDaysAgo / 1000).toString())
         
@@ -958,17 +1093,90 @@ class FileRepository(private val context: Context) {
         var recentUsageBytes: Long = 0
         try {
             context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                val sizeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.SIZE)
-                if (sizeIndex != -1) {
-                    while (cursor.moveToNext()) {
-                        recentUsageBytes += cursor.getLong(sizeIndex)
-                    }
+                if (cursor.moveToFirst()) {
+                    recentUsageBytes = cursor.getLong(0)
+                    // This logic is fundamentally flawed as it doesn't account for deletions, 
+                    // but we keep it as a fallback for cold start.
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        if (recentUsageBytes > 0) recentUsageBytes / 30 else 0
+        if (recentUsageBytes > 0) recentUsageBytes / 30 else 50 * 1024 * 1024 // 50MB default
+    }
+
+    // -------------------------------------------------------------
+    // AI Storage Forecast Data Management
+    // -------------------------------------------------------------
+
+    private val historyFile by lazy { File(context.filesDir, "storage_history.json") }
+    private val gson by lazy { Gson() }
+
+    suspend fun recordStorageSnapshot(info: StorageInfo) = withContext(Dispatchers.IO) {
+        try {
+            val history = getStorageHistory().toMutableList()
+            val now = System.currentTimeMillis()
+            
+            // Avoid spamming snapshots: only 1 per 6 hours unless significant change?
+            // For now, simple time check: if last snapshot was < 6 hours ago, skip, 
+            // UNLESS it's the very first one today.
+            if (history.isNotEmpty()) {
+                val last = history.last()
+                val diff = now - last.timestamp
+                if (diff < 6 * 60 * 60 * 1000) { 
+                    return@withContext // Too soon
+                }
+            }
+
+            // Pruning: Keep last 60 days
+            val sixtyDaysAgo = now - (60L * 24 * 60 * 60 * 1000)
+            history.removeAll { it.timestamp < sixtyDaysAgo }
+
+            history.add(StorageSnapshot(now, info.totalBytes, info.usedBytes))
+            
+            FileWriter(historyFile).use { writer ->
+                gson.toJson(history, writer)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun getStorageHistory(): List<StorageSnapshot> = withContext(Dispatchers.IO) {
+        if (!historyFile.exists()) return@withContext emptyList()
+        try {
+            FileReader(historyFile).use { reader ->
+                val type = object : TypeToken<List<StorageSnapshot>>() {}.type
+                return@withContext gson.fromJson<List<StorageSnapshot>>(reader, type) ?: emptyList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext emptyList()
+        }
+    }
+    
+    // Helper to inject fake data for testing
+    suspend fun debugInjectFakeHistory() = withContext(Dispatchers.IO) {
+        val history = mutableListOf<StorageSnapshot>()
+        val info = getStorageInfo()
+        val now = System.currentTimeMillis()
+        val total = info.totalBytes
+        
+        // Generate 30 days of history, growing by 200MB/day
+        // Current used is 'info.usedBytes'. We work backwards.
+        var currentUsed = info.usedBytes
+        val dailyGrowth = 200L * 1024 * 1024 
+        
+        for (i in 0 until 30) {
+            val time = now - (i * 24 * 60 * 60 * 1000L)
+            history.add(0, StorageSnapshot(time, total, currentUsed)) // Prepend
+            currentUsed -= dailyGrowth
+            if (currentUsed < 0) currentUsed = 100 * 1024 * 1024 // Min 100MB
+        }
+        
+        FileWriter(historyFile).use { writer ->
+            gson.toJson(history, writer)
+        }
     }
 
 
@@ -989,7 +1197,7 @@ class FileRepository(private val context: Context) {
 
     private fun getCategorySize(mediaType: Int): Long {
         var size: Long = 0
-        val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
+        val projection = arrayOf("SUM(${MediaStore.Files.FileColumns.SIZE})")
         val selection = "${MediaStore.Files.FileColumns.MEDIA_TYPE} = ?"
         val selectionArgs = arrayOf(mediaType.toString())
         
@@ -1001,11 +1209,8 @@ class FileRepository(private val context: Context) {
 
         try {
             context.contentResolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                val sizeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.SIZE)
-                if (sizeIndex != -1) {
-                    while (cursor.moveToNext()) {
-                        size += cursor.getLong(sizeIndex)
-                    }
+                if (cursor.moveToFirst()) {
+                    size = cursor.getLong(0)
                 }
             }
         } catch (e: Exception) {

@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_coordinator"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/nav_host_fragment"
+        android:name="androidx.navigation.fragment.NavHostFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:defaultNavHost="true"
+        app:navGraph="@navigation/nav_graph" />
+
+    <FrameLayout
+        android:id="@+id/bottom_bar_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom">
+
+
+        <!-- Floating Capsule Mini Player -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/layout_mini_player"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="110dp"
+            android:layout_marginHorizontal="24dp"
+            app:cardCornerRadius="36dp"
+            app:cardElevation="8dp"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:strokeWidth="0dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <!-- Glass Blur Layer -->
+                <View
+                    android:id="@+id/mini_player_blur_layer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/glass_taskbar_background" />
+
+                <!-- Glass Sheen/Gradient -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_liquid_glass"
+                    android:alpha="0.8" />
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingHorizontal="12dp">
+
+                    <!-- Album Art (Circle) -->
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/img_mini_album_art"
+                        android:layout_width="58dp"
+                        android:layout_height="58dp"
+                        android:padding="6dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_music_note_24"
+                        app:strokeWidth="2dp"
+                        app:strokeColor="?attr/colorControlNormal"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <!-- Text Info -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="12dp"
+                        android:orientation="vertical"
+                        android:gravity="center_vertical"
+                        app:layout_constraintStart_toEndOf="@id/img_mini_album_art"
+                        app:layout_constraintEnd_toStartOf="@id/btn_mini_prev"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent">
+
+                        <TextView
+                            android:id="@+id/text_mini_title"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Song Title"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:ellipsize="marquee"
+                            android:marqueeRepeatLimit="marquee_forever" />
+
+                        <TextView
+                            android:id="@+id/text_mini_artist"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Artist Name"
+                            android:textSize="12sp"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+
+                    <!-- Controls -->
+                    <ImageButton
+                        android:id="@+id/btn_mini_prev"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/ic_skip_previous_24"
+                        android:background="@android:color/transparent"
+                        app:tint="?attr/colorControlNormal"
+                        app:layout_constraintEnd_toStartOf="@id/btn_mini_play_pause"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <ImageButton
+                        android:id="@+id/btn_mini_play_pause"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginHorizontal="4dp"
+                        android:src="@drawable/ic_play_arrow_24"
+                        android:background="@drawable/bg_mini_play_button"
+                        android:padding="12dp"
+                        android:scaleType="fitCenter"
+                        app:tint="@android:color/white"
+                        app:layout_constraintEnd_toStartOf="@id/btn_mini_next"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <ImageButton
+                        android:id="@+id/btn_mini_next"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/ic_skip_next_24"
+                        android:background="@android:color/transparent"
+                        app:tint="?attr/colorControlNormal"
+                        app:layout_constraintEnd_toStartOf="@id/divider_mini"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <View
+                        android:id="@+id/divider_mini"
+                        android:layout_width="1dp"
+                        android:layout_height="24dp"
+                        android:background="#20808080"
+                        android:layout_marginHorizontal="8dp"
+                        app:layout_constraintEnd_toStartOf="@id/btn_mini_close"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <ImageButton
+                        android:id="@+id/btn_mini_close"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/ic_close_24"
+                        android:background="@android:color/transparent"
+                        app:tint="?attr/colorControlNormal"
+                        android:alpha="0.6"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </FrameLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+
+
+        <!-- Floating Glass Capsule Bottom Nav -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/bottom_nav_container"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_gravity="bottom"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="32dp"
+            app:cardElevation="16dp"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:strokeWidth="0dp">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <!-- 1. The Real-time Blur Layer (Driven by KT) -->
+                <View
+                    android:id="@+id/taskbar_blur_layer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/glass_taskbar_background" />
+
+                <!-- 2. The Liquid Sheen (Gradient + Border) -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_liquid_glass" />
+
+                <!-- 3. Navigation Icons (Sharp) -->
+                <com.google.android.material.bottomnavigation.BottomNavigationView
+                    android:id="@+id/bottom_navigation"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/transparent"
+                    app:elevation="0dp"
+                    app:labelVisibilityMode="unlabeled"
+                    app:itemIconSize="24dp"
+                    app:itemIconTint="@color/nav_item_tint"
+                    app:itemRippleColor="@android:color/transparent"
+                    app:itemActiveIndicatorStyle="@null"
+                    app:menu="@menu/bottom_nav_menu"
+                    style="@style/Widget.Material3.BottomNavigationView" />
+            </FrameLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
+
+    <!-- New File Operation Progress UI -->
+    <include
+        android:id="@+id/file_progress_layout"
+        layout="@layout/layout_file_progress" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

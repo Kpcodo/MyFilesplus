@@ -46,6 +46,10 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     private val _musicFiles = MutableStateFlow<List<com.mfp.filemanager.data.FileModel>>(emptyList())
     val musicFiles = _musicFiles.asStateFlow()
 
+    init {
+        loadMusicFiles()
+    }
+
     fun loadMusicFiles() {
         viewModelScope.launch {
             _musicFiles.value = repository.getFilesByCategory(com.mfp.filemanager.data.FileType.AUDIO)
@@ -159,6 +163,11 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             mediaController?.play()
         }
+    }
+
+    fun stopPlayer() {
+        mediaController?.stop()
+        mediaController?.clearMediaItems()
     }
     
     override fun onCleared() {
