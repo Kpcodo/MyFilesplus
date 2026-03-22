@@ -1,14 +1,17 @@
 package com.mfp.filemanager.ui.fragments
 
-import android.animation.ArgbEvaluator
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.TransitionDrawable
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -16,6 +19,7 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.view.animation.OvershootInterpolator
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.SeekBar
 import androidx.core.content.ContextCompat
@@ -29,7 +33,6 @@ import androidx.navigation.fragment.findNavController
 import androidx.palette.graphics.Palette
 import androidx.media3.common.Player
 import coil.load
-import jp.wasabeef.transformers.coil.BlurTransformation
 import com.mfp.filemanager.R
 import com.mfp.filemanager.databinding.FragmentPlayerBinding
 import com.mfp.filemanager.ui.viewmodels.AudioViewModel
@@ -46,7 +49,9 @@ class PlayerFragment : Fragment() {
     
     // Animators
     private var vinylAnimator: ObjectAnimator? = null
-    private var backgroundAnimator: ValueAnimator? = null
+    private var liquidBlobAnimators = mutableListOf<ValueAnimator>()
+    private var lastPaletteColors = listOf<Int>()
+    private var currentAccentColor: Int = 0 // Initialized in onViewCreated
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -60,6 +65,7 @@ class PlayerFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        currentAccentColor = ContextCompat.getColor(requireContext(), R.color.default_accent)
         setupVinylAnimation()
         setupListeners()
         setupObservers()
@@ -143,12 +149,12 @@ class PlayerFragment : Fragment() {
             viewModel.playPrevious()
         }
 
-        binding.btnShuffle.setOnClickListener {
+        binding.containerShuffle.setOnClickListener {
             animateButton(it)
             viewModel.toggleShuffle()
         }
 
-        binding.btnRepeat.setOnClickListener {
+        binding.containerRepeat.setOnClickListener {
             animateButton(it)
             viewModel.toggleRepeatMode()
         }
@@ -217,6 +223,11 @@ class PlayerFragment : Fragment() {
                             if (isPlaying) R.drawable.ic_feather_pause else R.drawable.ic_feather_play
                         )
                         
+                        // Optical centering for the triangle (Play icon)
+                        // When NOT playing, we show the Play icon which is a triangle and needs a slight right shift
+                        val density = resources.displayMetrics.density
+                        binding.imgPlayPause.translationX = if (isPlaying) 0f else 2f * density
+                        
                         // Vinyl Animation control
                         if (isPlaying) {
                             if (vinylAnimator?.isPaused == true) vinylAnimator?.resume() else vinylAnimator?.start()
@@ -245,106 +256,162 @@ class PlayerFragment : Fragment() {
                 }
 
                 launch {
-                    viewModel.shuffleEnabled.collect { enabled ->
-                        val color = if (enabled) {
-                            ContextCompat.getColor(requireContext(), R.color.teal_200)
-                        } else {
-                            // Disabled: 50% White
-                            android.graphics.Color.argb(128, 255, 255, 255)
-                        }
-                        binding.btnShuffle.imageTintList = ColorStateList.valueOf(color)
+                    viewModel.shuffleEnabled.collect { _ ->
+                        updateShuffleRepeatColors()
                     }
                 }
 
                 launch {
-                    viewModel.repeatMode.collect { mode ->
-                        val (icon, color) = when (mode) {
-                            // Off: 50% White
-                            Player.REPEAT_MODE_OFF -> R.drawable.ic_feather_repeat to android.graphics.Color.argb(128, 255, 255, 255)
-                            // On: Teal
-                            Player.REPEAT_MODE_ONE -> R.drawable.ic_feather_repeat to ContextCompat.getColor(requireContext(), R.color.teal_200)
-                            Player.REPEAT_MODE_ALL -> R.drawable.ic_feather_repeat to ContextCompat.getColor(requireContext(), R.color.teal_200)
-                            else -> R.drawable.ic_feather_repeat to android.graphics.Color.argb(128, 255, 255, 255)
-                        }
-                        binding.btnRepeat.setImageResource(icon)
-                        binding.btnRepeat.imageTintList = ColorStateList.valueOf(color)
+                    viewModel.repeatMode.collect { _ ->
+                        updateShuffleRepeatColors()
                     }
                 }
             }
         }
     }
 
+    private fun updateShuffleRepeatColors() {
+        val shuffleEnabled = viewModel.shuffleEnabled.value
+        val repeatMode = viewModel.repeatMode.value
+        
+        // Update Shuffle
+        val (shuffleIconColor, shuffleBgColor) = if (shuffleEnabled) {
+            Color.WHITE to currentAccentColor
+        } else {
+            Color.argb(128, 255, 255, 255) to Color.TRANSPARENT
+        }
+        binding.btnShuffle.imageTintList = ColorStateList.valueOf(shuffleIconColor)
+        binding.containerShuffle.setCardBackgroundColor(shuffleBgColor)
+
+        // Update Repeat
+        val repeatEnabled = repeatMode != Player.REPEAT_MODE_OFF
+        val (repeatIconColor, repeatBgColor) = if (repeatEnabled) {
+            Color.WHITE to currentAccentColor
+        } else {
+            Color.argb(128, 255, 255, 255) to Color.TRANSPARENT
+        }
+        
+        val iconRes = if (repeatMode == Player.REPEAT_MODE_ONE) {
+            R.drawable.ic_feather_repeat_one
+        } else {
+            R.drawable.ic_feather_repeat
+        }
+        
+        binding.btnRepeat.setImageResource(iconRes)
+        binding.btnRepeat.imageTintList = ColorStateList.valueOf(repeatIconColor)
+        binding.containerRepeat.setCardBackgroundColor(repeatBgColor)
+    }
+
     private fun updatePlayerBackground(bitmap: Bitmap?) {
         if (bitmap == null) return
 
         Palette.from(bitmap).generate { palette ->
-            // Safety check: if view is destroyed, don't update UI
             if (_binding == null) return@generate
             val context = context ?: return@generate
 
-            // Extract dominant colors for mixed gradient
             val defaultColor = ContextCompat.getColor(context, android.R.color.black)
+            val colors = mutableListOf<Int>()
+            palette?.vibrantSwatch?.rgb?.let { colors.add(it) }
+            palette?.darkVibrantSwatch?.rgb?.let { colors.add(it) }
+            palette?.mutedSwatch?.rgb?.let { colors.add(it) }
+            palette?.lightVibrantSwatch?.rgb?.let { colors.add(it) }
+            palette?.dominantSwatch?.rgb?.let { colors.add(it) }
             
-            val colorTop = palette?.getDarkVibrantColor(
-                palette.getVibrantColor(
-                    palette.getDominantColor(defaultColor)
-                )
-            ) ?: defaultColor
-            
-            val colorBottom = palette?.getDarkMutedColor(
-                palette.getMutedColor(defaultColor)
-            ) ?: defaultColor
-
-            // Create gradient
-            val gradientDrawable = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(colorTop, colorBottom)
-            )
-            
-            // Create transition for smooth effect
-            val currentBackground = binding.root.background
-            val transitionDrawable = TransitionDrawable(
-                arrayOf(currentBackground ?: defaultColor.toDrawable(), gradientDrawable)
-            )
-            
-            binding.root.background = transitionDrawable
-            transitionDrawable.startTransition(800)
-            
-            // Start ambient animation on the new drawable after transition
-            backgroundAnimator?.cancel()
-            backgroundAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = 4000L
-                repeatCount = ValueAnimator.INFINITE
-                repeatMode = ValueAnimator.REVERSE
-                
-                // Use a mix color for the middle to create a 'mix max' effect (3-color gradient)
-                val colorMix = palette?.getMutedColor(defaultColor) ?: defaultColor
-                
-                val evaluator = ArgbEvaluator()
-                addUpdateListener { animator ->
-                    if (_binding == null) {
-                        animator.cancel()
-                        return@addUpdateListener
-                    }
-                    val fraction = animator.animatedValue as Float
-                    
-                    // Animate between two 3-color states
-                    // State A: Top -> Mix -> Bottom
-                    // State B: Bottom -> Mix -> Top
-                    // This creates a richer "breathing" effect through the middle
-                    val newTop = evaluator.evaluate(fraction, colorTop, colorBottom) as Int
-                    val newMid = evaluator.evaluate(fraction, colorMix, colorTop) as Int // Shifts slightly towards top
-                    val newBottom = evaluator.evaluate(fraction, colorBottom, colorTop) as Int
-                    
-                    gradientDrawable.colors = intArrayOf(newTop, newMid, newBottom)
-                }
-                start()
+            if (colors.size < 3) {
+                 colors.add(palette?.getVibrantColor(defaultColor) ?: defaultColor)
+                 colors.add(palette?.getMutedColor(defaultColor) ?: defaultColor)
+                 colors.add(palette?.getDominantColor(defaultColor) ?: defaultColor)
             }
+            // Base background: a very dark version of the dominant color instead of pure black
+            val baseColor = Color.argb(255, (Color.red(colors[0]) * 0.1).toInt(), (Color.green(colors[0]) * 0.1).toInt(), (Color.blue(colors[0]) * 0.1).toInt())
+            binding.root.background = ColorDrawable(baseColor)
 
-            // Also update the Play button tint
-            val accentColor = palette?.getVibrantColor(palette.getLightVibrantColor(colorTop)) ?: colorTop
-            binding.fabPlayPause.backgroundTintList = ColorStateList.valueOf(accentColor)
+            // Update accent for buttons
+            val accentColor = palette?.getVibrantColor(palette.getLightVibrantColor(colors[0])) ?: colors[0]
+            currentAccentColor = accentColor
+            binding.fabPlayPause.setCardBackgroundColor(accentColor)
+            updateShuffleRepeatColors()
+
+            // Initialize/Update Liquid Blobs
+            setupLiquidBlobs(context, colors)
         }
+    }
+
+    private fun setupLiquidBlobs(context: Context, colors: List<Int>) {
+        val container = binding.playerBackground
+        container.removeAllViews()
+        liquidBlobAnimators.forEach { it.cancel() }
+        liquidBlobAnimators.clear()
+
+        // Apply heavy blur to the container if supported (API 31+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            container.setRenderEffect(
+                RenderEffect.createBlurEffect(
+                    150f, 150f, Shader.TileMode.CLAMP
+                )
+            )
+        }
+
+        // Create 8 blobs (increased from 5 to fill more space)
+        for (i in 0 until 8) {
+            val blob = View(context)
+            val size = 800 + (Math.random() * 600).toInt() // Increased size: 800..1400
+            val params = FrameLayout.LayoutParams(size, size)
+            blob.layoutParams = params
+            
+            val color = colors[i % colors.size]
+            
+            // Soft radial gradient for the blob
+            val drawable = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                gradientType = GradientDrawable.RADIAL_GRADIENT
+                gradientRadius = size / 2f
+                setColors(intArrayOf(
+                    Color.argb(200, Color.red(color), Color.green(color), Color.blue(color)),
+                    Color.TRANSPARENT
+                ))
+            }
+            blob.background = drawable
+            
+            // Random initial position (wider range to cover corners)
+            blob.translationX = (Math.random() * 2000 - 1000).toFloat()
+            blob.translationY = (Math.random() * 2000 - 1000).toFloat()
+            blob.alpha = 0.7f
+            
+            container.addView(blob)
+            
+            // Animate each blob uniquely
+            animateBlob(blob)
+        }
+    }
+
+    private fun animateBlob(blob: View) {
+        // Faster duration: 4s to 8s
+        val duration = 4000L + (Math.random() * 4000L).toLong()
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            this.duration = duration
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            
+            val startX = (Math.random() * 2000 - 1000).toFloat()
+            val startY = (Math.random() * 2000 - 1000).toFloat()
+            val endX = (Math.random() * 2000 - 1000).toFloat()
+            val endY = (Math.random() * 2000 - 1000).toFloat()
+            
+            addUpdateListener { anim ->
+                if (_binding == null) {
+                    anim.cancel()
+                    return@addUpdateListener
+                }
+                val fraction = anim.animatedValue as Float
+                blob.translationX = startX + (endX - startX) * fraction
+                blob.translationY = startY + (endY - startY) * fraction
+                blob.scaleX = 1f + 0.5f * Math.sin(fraction.toDouble() * Math.PI).toFloat()
+                blob.scaleY = 1f + 0.5f * Math.sin(fraction.toDouble() * Math.PI).toFloat()
+            }
+        }
+        animator.start()
+        liquidBlobAnimators.add(animator)
     }
 
     private fun formatTime(millis: Long): String {
@@ -356,7 +423,8 @@ class PlayerFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         vinylAnimator?.cancel()
-        backgroundAnimator?.cancel()
+        liquidBlobAnimators.forEach { it.cancel() }
+        liquidBlobAnimators.clear()
         _binding = null
     }
 }

@@ -1,5 +1,8 @@
 package com.mfp.filemanager.ui.fragments
 
+import android.content.Context
+import android.view.inputmethod.InputMethodManager
+
 import android.os.Bundle
 import android.text.format.Formatter
 import android.view.LayoutInflater
@@ -295,15 +298,24 @@ class HomeFragment : Fragment() {
                 }
 
                 launch {
-                    viewModel.searchResults.collect { results ->
+                    kotlinx.coroutines.flow.combine(
+                        viewModel.searchResults,
+                        viewModel.searchQuery
+                    ) { results, query -> results to query }.collect { (results, query) ->
                         searchAdapter.submitList(results)
+                        
+                        val isSearching = query.isNotEmpty()
                         val hasResults = results.isNotEmpty()
-                        binding.recyclerSearchResults.visibility =
-                            if (hasResults) View.VISIBLE else View.GONE
-                        binding.viewBlurOverlay.visibility =
-                            if (hasResults) View.VISIBLE else View.GONE
-                        binding.swipeRefresh.visibility =
-                            if (hasResults) View.GONE else View.VISIBLE
+                        
+                        // Overlay visibility
+                        binding.viewBlurOverlay.visibility = if (isSearching) View.VISIBLE else View.GONE
+                        binding.recyclerSearchResults.visibility = if (isSearching && hasResults) View.VISIBLE else View.GONE
+                        
+                        // Empty state visibility
+                        binding.textSearchEmpty.visibility = if (isSearching && !hasResults) View.VISIBLE else View.GONE
+                        
+                        // Dashboard visibility
+                        binding.swipeRefresh.visibility = if (isSearching) View.GONE else View.VISIBLE
                     }
                 }
 
@@ -393,12 +405,22 @@ class HomeFragment : Fragment() {
         binding.inputSearch.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                viewModel.updateSearchQuery(s?.toString() ?: "")
-                binding.btnSearchClear.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+                val query = s?.toString() ?: ""
+                viewModel.updateSearchQuery(query)
+                
+                binding.btnSearchClear.visibility = if (query.isEmpty()) View.GONE else View.VISIBLE
+                binding.btnSearchBack.visibility = if (query.isEmpty()) View.GONE else View.VISIBLE
+                binding.imgSearchIcon.visibility = if (query.isEmpty()) View.VISIBLE else View.GONE
             }
 
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
+
+        binding.btnSearchBack.setOnClickListener {
+            binding.inputSearch.setText("")
+            viewModel.clearSearch()
+            hideKeyboard()
+        }
 
         binding.btnSearchClear.setOnClickListener {
             binding.inputSearch.setText("")
@@ -429,6 +451,7 @@ class HomeFragment : Fragment() {
                     if (viewModel.searchQuery.value.isNotEmpty()) {
                         binding.inputSearch.setText("")
                         viewModel.clearSearch()
+                        hideKeyboard()
                     } else if (viewModel.isRecentSelectionMode.value) {
                         viewModel.exitRecentSelectionMode()
                     } else {
@@ -437,6 +460,12 @@ class HomeFragment : Fragment() {
                     }
                 }
             })
+    }
+
+    private fun hideKeyboard() {
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        imm.hideSoftInputFromWindow(binding.root.windowToken, 0)
+        binding.inputSearch.clearFocus()
     }
 
     private fun handleFileAction(file: FileModel, action: String) {

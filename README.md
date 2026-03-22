@@ -3,57 +3,51 @@
   <h1>MyFiles+</h1>
   <p><b>A flagship-grade, private, and powerful File Manager for Android.</b></p>
   
-  [![Version](https://img.shields.io/badge/version-1.3.0-blue.svg?style=for-the-badge)](https://github.com/Kpcodo/MyFilesplus/releases)
-  [![Android](https://img.shields.io/badge/Android-8.0%2B-green.svg?style=for-the-badge&logo=android)](https://developer.android.com/about/versions/oreo)
+  [![Version](https://img.shields.io/badge/version-1.4.0-blue.svg?style=for-the-badge)](https://github.com/Kpcodo/MyFilesplus/releases)
+  [![Android](https://img.shields.io/badge/Android-7.0%2B-green.svg?style=for-the-badge&logo=android)](https://developer.android.com/about/versions/nougat)
   [![Kotlin](https://img.shields.io/badge/Kotlin-1.9%2B-purple.svg?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
   [![Material 3](https://img.shields.io/badge/Material-3-red.svg?style=for-the-badge)](https://m3.material.io/)
 </div>
 
 ---
 
-**MyFiles+** is a modern, fast, and lightweight File Manager built for the modern Android ecosystem. Designed with **Jetpack Compose** and **Material 3**, it provides a seamless, fluid experience while offering desktop-class file management capabilities right in your pocket.
+**MyFiles+** is a modern, fast, and lightweight File Manager built for the modern Android ecosystem. Designed with **Material Components**, it provides a seamless, fluid experience while offering desktop-class file management capabilities right in your pocket.
 
 ## ✨ Features
 
 ### 📁 Advanced File Management
-- **Seamless Navigation**: Fluid swipe gestures to switch between Home, Recents, Bin, and Settings.
+- **Seamless Navigation**: Fluid navigation to switch between Browser, Recents, Trash, and Settings.
 - **Batch Operations**: Copy, move, rename, and delete multiple files with high-performance execution.
-- **Deep Search**: Instant search with advanced filters (Type, Size, Date).
+- **Deep Search**: Instant search to locate files effortlessly.
 - **Archive Support**: Full integration for ZIP extraction and management.
 - **Secure Bin**: Built-in trash system to prevent accidental data loss with easy restoration.
 
 ### 📊 Storage Insights & Health
-- **Visual Dashboard**: Comprehensive breakdown of your storage categories (Images, Videos, Apps, Docs, etc.).
-- **Smart Forecast**: AI-driven storage prediction that tells you exactly when you'll run out of space based on usage patterns.
-- **Storage Health**: Identify large files and "junk" (temp/log/cache) that are consuming valuable space.
+- **Storage Forecast**: Analyze and predict storage usage over time.
+- **Storage Health**: Identify large files and unwanted media that are consuming valuable space.
 
 ### 🧹 Intelligent Cleaning
 - **Large File Finder**: Quickly identify and remove space-intensive files.
-- **Junk Discovery**: Detect and clear hidden `.tmp`, `.log`, and `.temp` files.
-- **Empty Folder Cleaner**: Deep-scan for unused empty directories to keep your storage organized.
-- **Liquid Animations**: Satisfying, high-fidelity animations for cleaning processes.
+- **Background Operations**: Smooth file transfers and cleaning processes powered by Kotlin Coroutines.
 
-### 📦 Integrated Media & Editors
-- **Video Previews**: Instant high-quality video thumbnails.
-- **Built-in Viewers**: native support for image viewing and video playback.
-- **Text Editor**: Integrated monospace text editor with copy-to-clipboard functionality.
+### 📦 Integrated Media & Viewers
+- **Media Previews**: Instant high-quality thumbnails using Coil.
+- **Built-in Players**: Native support for image viewing, and a dedicated audio/video player powered by Media3 (ExoPlayer).
 
 ### 💅 Premium Design & Experience
-- **Material You**: Dynamic color support that adapts to your wallpaper (Android 12+).
-- **AMOLED Dark Mode**: True black theme for OLED screens to save battery and reduce eye strain.
-- **Optimistic UI**: Blazing fast interactions with optimistic state updates for zero-lag feeling.
-- **Modern Typography**: Featuring the latest Material 3 typography system.
+- **Material Design 3**: Modern UI components with comprehensive Material 3 integration.
+- **Responsive UI**: Blazing fast interactions with optimized background layouts for a zero-lag feeling.
 
 ## 🛠️ Tech Stack
 
-- **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) (100% Declarative UI)
-- **Architecture**: MVVM (Model-View-ViewModel) + Clean Architecture principles
+- **UI Framework**: Android View System (XML Layouts & View Binding)
+- **Architecture**: MVVM (Model-View-ViewModel) Architecture
 - **Asynchronous Logic**: [Kotlin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html) & Flow
 - **Image Loading**: [Coil](https://coil-kt.github.io/coil/) (Optimized for Android)
-- **Networking**: [Ktor](https://ktor.io/) (High-performance asynchronous client)
+- **Media Playback**: [Media3 & ExoPlayer](https://developer.android.com/guide/topics/media/media3)
+- **Networking**: [Ktor Client](https://ktor.io/)
 - **Data Persistence**: [Jetpack DataStore](https://developer.android.com/topic/libraries/architecture/datastore) (Preferences)
 - **Archive Management**: [Apache Commons Compress](https://commons.apache.org/proper/commons-compress/)
-- **Standard Library**: [Kotlin Serialization](https://kotlinlang.org/docs/serialization.html)
 
 ## 📸 Screenshots
 
@@ -81,8 +75,8 @@
     git clone https://github.com/Kpcodo/MyFilesplus.git
     ```
 2.  **Open** the project in [Android Studio](https://developer.android.com/studio).
-3.  **Sync** Gradle and ensure you have **JDK 17** configured.
-4.  **Run** on an Android device or emulator (Android 8.0/API 26+).
+3.  **Sync** Gradle and ensure you have **JDK 11** or higher configured.
+4.  **Run** on an Android device or emulator (Android 7.0/API 24+).
 
 ## 🤝 Contributing
 

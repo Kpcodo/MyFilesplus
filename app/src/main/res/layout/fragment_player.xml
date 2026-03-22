@@ -12,6 +12,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <!-- Liquid Background Container -->
+        <FrameLayout
+            android:id="@+id/player_background"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
         <!-- Toolbar -->
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
@@ -160,18 +166,29 @@
             android:clipToPadding="false"
             app:layout_constraintBottom_toBottomOf="parent">
 
-            <!-- Top Row: Controls -->
             <!-- Shuffle -->
-            <ImageView
-                android:id="@+id/btn_shuffle"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:contentDescription="Shuffle"
-                android:src="@drawable/ic_feather_shuffle"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/container_shuffle"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent"
                 app:layout_constraintBottom_toBottomOf="@+id/fab_play_pause"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="@+id/fab_play_pause"
-                app:tint="@android:color/white" />
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/btn_shuffle"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Shuffle"
+                    android:src="@drawable/ic_feather_shuffle"
+                    app:tint="@android:color/white" />
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Previous -->
             <ImageView
@@ -182,30 +199,37 @@
                 android:src="@drawable/ic_feather_skip_back"
                 app:layout_constraintBottom_toBottomOf="@+id/fab_play_pause"
                 app:layout_constraintEnd_toStartOf="@+id/fab_play_pause"
-                app:layout_constraintStart_toEndOf="@+id/btn_shuffle"
+                app:layout_constraintStart_toEndOf="@+id/container_shuffle"
                 app:layout_constraintTop_toTopOf="@+id/fab_play_pause"
                 app:tint="@android:color/white" />
 
             <!-- Play/Pause (Center) -->
-            <!-- Use a simpler background for ring effect -->
-            <FrameLayout
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/fab_play_pause"
                 android:layout_width="64dp"
                 android:layout_height="64dp"
-                android:background="@drawable/bg_play_button_ring"
+                app:cardCornerRadius="32dp"
+                app:cardElevation="0dp"
+                app:contentPadding="0dp"
+                app:cardPreventCornerOverlap="false"
+                app:cardUseCompatPadding="false"
+                app:cardBackgroundColor="@android:color/transparent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
+                app:layout_constraintTop_toTopOf="parent"
+                android:clickable="true"
+                android:focusable="true">
 
                 <ImageView
                     android:id="@+id/img_play_pause"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:layout_gravity="center"
+                    android:scaleType="fitCenter"
                     android:contentDescription="Play"
                     android:src="@drawable/ic_feather_play"
                     app:tint="@android:color/white" />
-            </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Next -->
             <ImageView
@@ -215,22 +239,34 @@
                 android:contentDescription="Next"
                 android:src="@drawable/ic_feather_skip_forward"
                 app:layout_constraintBottom_toBottomOf="@+id/fab_play_pause"
-                app:layout_constraintEnd_toStartOf="@+id/btn_repeat"
+                app:layout_constraintEnd_toStartOf="@+id/container_repeat"
                 app:layout_constraintStart_toEndOf="@+id/fab_play_pause"
                 app:layout_constraintTop_toTopOf="@+id/fab_play_pause"
                 app:tint="@android:color/white" />
 
             <!-- Repeat -->
-            <ImageView
-                android:id="@+id/btn_repeat"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:contentDescription="Repeat"
-                android:src="@drawable/ic_feather_repeat"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/container_repeat"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent"
                 app:layout_constraintBottom_toBottomOf="@+id/fab_play_pause"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@+id/fab_play_pause"
-                app:tint="@android:color/white" />
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/btn_repeat"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Repeat"
+                    android:src="@drawable/ic_feather_repeat"
+                    app:tint="@android:color/white" />
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Bottom Row: Time and Progress -->
             <TextView

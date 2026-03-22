@@ -55,7 +55,8 @@
                 android:src="@drawable/ic_arrow_back"
                 android:visibility="gone"
                 app:tint="?android:attr/textColorPrimary"
-                tools:ignore="ContentDescription" />
+                tools:ignore="ContentDescription"
+                tools:visibility="visible" />
 
             <ImageView
                 android:id="@+id/img_search_icon"
@@ -535,7 +536,25 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/card_search"
         android:background="?android:attr/colorBackground"
-        tools:visibility="visible"
+        tools:visibility="gone"
         tools:listitem="@layout/item_file_list"/>
+
+    <!-- Search Empty State -->
+    <TextView
+        android:id="@+id/text_search_empty"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="No files found"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="16sp"
+        android:fontFamily="sans-serif-medium"
+        android:visibility="gone"
+        android:elevation="6dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/card_search"
+        app:layout_constraintVertical_bias="0.3"
+        tools:visibility="visible" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

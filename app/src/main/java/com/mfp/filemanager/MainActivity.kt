@@ -1,5 +1,7 @@
 package com.mfp.filemanager
 
+import android.graphics.Rect
+
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
@@ -220,6 +222,29 @@ class MainActivity : AppCompatActivity() {
                         .setDuration(300)
                         .setInterpolator(android.view.animation.DecelerateInterpolator())
                         .start()
+                }
+            }
+        }
+
+        // Global layout listener to detect keyboard visibility and hide the taskbar
+        binding.root.viewTreeObserver.addOnGlobalLayoutListener {
+            val rect = android.graphics.Rect()
+            binding.root.getWindowVisibleDisplayFrame(rect)
+            val screenHeight = binding.root.rootView.height
+            val keypadHeight = screenHeight - rect.bottom
+            
+            // If keypadHeight is > 15% of screen height, keyboard is likely visible
+            if (keypadHeight > screenHeight * 0.15) {
+                if (binding.bottomBarContainer.visibility != View.GONE) {
+                    binding.bottomBarContainer.visibility = View.GONE
+                }
+            } else {
+                // Keyboard is hidden, restore taskbar if not in player mode
+                val currentId = try { navController.currentDestination?.id } catch(e: Exception) { -1 }
+                if (currentId != R.id.nav_player) {
+                    if (binding.bottomBarContainer.visibility != View.VISIBLE) {
+                        binding.bottomBarContainer.visibility = View.VISIBLE
+                    }
                 }
             }
         }
